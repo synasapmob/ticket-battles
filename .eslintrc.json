@@ -1,0 +1,52 @@
+{
+  "extends": [
+    "next/core-web-vitals",
+    "plugin:@next/next/recommended",
+    "prettier"
+  ],
+  "plugins": ["prettier"],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "overrides": [
+    {
+      "files": ["*.ts", "*.tsx"],
+      "rules": {
+        "import/order": [
+          "error",
+          {
+            "groups": ["builtin", "external", "parent", "sibling", "index"],
+            "newlines-between": "always",
+            "alphabetize": {
+              "order": "asc",
+              "caseInsensitive": true
+            }
+          }
+        ],
+        // (allow export default none name)
+        "react/display-name": "off",
+
+        // (allow export default function)
+        "import/no-anonymous-default-export": "off",
+
+        // format for project
+        "prettier/prettier": [
+          "error",
+          {
+            "arrowParens": "avoid",
+            "endOfLine": "lf",
+            "tabWidth": 2,
+            "semi": true,
+            "singleQuote": true,
+            "trailingComma": "es5"
+          }
+        ],
+
+        // // (declare) is defined but never used.
+        "no-unused-vars": ["error"]
+      },
+      "extends": ["prettier"]
+    }
+  ]
+}
