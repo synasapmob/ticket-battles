@@ -83,7 +83,12 @@ export default ({ children }: PropsWithChildren) => {
         setIsVolume,
       }}
     >
-      <HStack position="fixed" inset="auto 0 0 auto" zIndex="docked" margin={4}>
+      <HStack
+        position="fixed"
+        inset="auto 0 0 auto"
+        zIndex="dropdown"
+        margin={4}
+      >
         <Text
           color="shader.a.300"
           fontSize="sm"

@@ -33,11 +33,11 @@ export default function RootLayout({
       <body>
         <ProviderQueryClient>
           <ProviderSuiDapp>
-            <ContextVolume>
-              <ProviderChakra>
+            <ProviderChakra>
+              <ContextVolume>
                 <ProviderDefault>{children}</ProviderDefault>
-              </ProviderChakra>
-            </ContextVolume>
+              </ContextVolume>
+            </ProviderChakra>
           </ProviderSuiDapp>
         </ProviderQueryClient>
       </body>

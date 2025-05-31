@@ -17,7 +17,6 @@ interface PoolQuantityProps {
 export default ({ quantity, setQuantity }: PoolQuantityProps) => {
   return (
     <NumberInput
-      flex={1}
       variant="solid"
       min={1}
       defaultValue={quantity}

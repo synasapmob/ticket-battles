@@ -103,7 +103,7 @@ export default ({ hover, setHover }: HomeArticleListProps) => {
       }}
     >
       {ListHome.map((meta, index) => (
-        <Link key={meta.heading} href={meta.href} prefetch={true}>
+        <Link key={meta.heading} href={meta.href}>
           <SoundWrapper
             display="flex"
             bg="shader.a.800"

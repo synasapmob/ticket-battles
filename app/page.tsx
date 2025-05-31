@@ -7,7 +7,7 @@ import HomeNotification from 'layout/Home/HomeNotification';
 
 export default () => {
   return (
-    <Container maxWidth={theme.breakpoints.xl} my={8}>
+    <Container maxWidth={theme.breakpoints.xl} my={6}>
       <HomeNotification />
 
       <HomeArticle />

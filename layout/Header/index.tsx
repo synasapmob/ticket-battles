@@ -14,15 +14,17 @@ export default () => {
       position="sticky"
       zIndex="sticky"
       display="flex"
-      py={3}
+      py={2}
       bg="shader.a.800"
       top={0}
     >
       <Center
         as={Container}
-        maxWidth={theme.breakpoints['2xl']}
-        justifyContent="flex-end"
+        maxWidth={theme.breakpoints.xl}
+        justifyContent="space-between"
       >
+        <h1>logo here</h1>
+
         <ConnectWalletWrapper
           render={account => (
             <>
