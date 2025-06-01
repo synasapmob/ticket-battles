@@ -14,9 +14,9 @@ import { TypeTicketMetadata } from 'types/types.ticket';
 
 export default ({ params }: ProfilePageProps) => {
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['ticket_get'],
+    queryKey: ['ticket_put', params.address],
     queryFn: async () => {
-      const { data } = await axios.put<TypeTicketMetadata[]>('/api/ticket', {
+      const { data } = await axios.put<TypeTicketMetadata>('/api/ticket', {
         owner: params.address,
       });
 
@@ -36,13 +36,15 @@ export default ({ params }: ProfilePageProps) => {
 
       {!isLoading && (
         <>
-          {data?.length ? (
+          {data ? (
             <ProfileNFTsGrid>
-              {data.map(meta => (
-                <CardNFTLayout key={meta.createdAt}>
-                  <AvatarFallback src={TicketJPG.src} alt={TicketJPG.src} />
-                </CardNFTLayout>
-              ))}
+              {React.Children.toArray(
+                [...Array(data.quantity)].map(() => (
+                  <CardNFTLayout>
+                    <AvatarFallback src={TicketJPG.src} alt={TicketJPG.src} />
+                  </CardNFTLayout>
+                ))
+              )}
             </ProfileNFTsGrid>
           ) : (
             <ButtonTryAgain isFetching={isFetching} refetch={refetch} />

@@ -1,5 +1,6 @@
 import { AspectRatio, Box, Skeleton } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import React from 'react';
 
 import ProfileNFTsGrid from './ProfileNFTsGrid';
@@ -12,17 +13,19 @@ import CardNFTLayout from 'components/Card/CardNFT/CardNFTLayout';
 import CardNFTName from 'components/Card/CardNFT/CardNFTName';
 import CardNFTTokenID from 'components/Card/CardNFT/CardNFTTokenID';
 import { TypeNFTMetadata } from 'types/types.nft';
-import utilsSui from 'utils/utils.sui';
+import { TypeTicketMetadata } from 'types/types.ticket';
 
 export default ({ params }: ProfilePageProps) => {
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['ticket_get'],
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['nft_get', params.address],
     queryFn: async () => {
-      const { data } = await axios.get<TypeTicketMetadata[]>('/api/ticket');
+      const { data } = await axios.get<TypeNFTMetadata[]>('/api/nft');
 
       return data;
     },
   });
+
+  const myOwn = data?.filter(meta => meta?.owner === params.address);
 
   return (
     <>
@@ -36,23 +39,23 @@ export default ({ params }: ProfilePageProps) => {
 
       {!isLoading && (
         <>
-          {data?.length ? (
+          {myOwn?.length ? (
             <ProfileNFTsGrid>
-              {data.map(meta => (
-                <CardNFTLayout key={meta.fields.id.id}>
+              {myOwn.map(meta => (
+                <CardNFTLayout key={meta.createdAt}>
                   <Box position="relative">
-                    <AspectRatio ratio={1 / 1} pointerEvents="none">
+                    {/* <AspectRatio ratio={1 / 1} pointerEvents="none">
                       <AvatarFallback
                         src={meta.fields.url}
                         alt={meta.fields.name}
                       />
-                    </AspectRatio>
+                    </AspectRatio> */}
                   </Box>
 
                   <CardNFTBottom>
-                    <CardNFTTokenID tokenID={meta.fields.id.id} />
+                    <CardNFTTokenID tokenID={meta.tokenId} />
 
-                    <CardNFTName name={meta.fields.name} />
+                    {/* <CardNFTName name={meta.} /> */}
                   </CardNFTBottom>
                 </CardNFTLayout>
               ))}
