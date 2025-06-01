@@ -3,6 +3,7 @@
 import { Box, Container, Flex, Skeleton, Stack, theme } from '@chakra-ui/react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { useState } from 'react';
 
 import Attention from 'components/Attention';
@@ -14,33 +15,22 @@ import FoundrySwapChest from 'layout/Foundry/FoundrySwap/FoundrySwapChest';
 import FoundrySwapIcon from 'layout/Foundry/FoundrySwap/FoundrySwapIcon';
 import FoundrySwapSubmit from 'layout/Foundry/FoundrySwap/FoundrySwapSubmit';
 import FoundrySwapTicket from 'layout/Foundry/FoundrySwap/FoundrySwapTicket';
-import { TypeNFTMetadata } from 'types/types.nft';
-import utilsSui from 'utils/utils.sui';
+import { TypeTicketMetadata } from 'types/types.ticket';
 
 export default () => {
   const current_account = useCurrentAccount();
 
   const [quantity, setQuantity] = useState<string>();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['profile', current_account?.address],
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['ticket_put', current_account?.address],
     queryFn: async () => {
       if (current_account?.address) {
-        const nfts = await utilsSui.getSuiClient.getOwnedObjects({
+        const { data } = await axios.put<TypeTicketMetadata>('/api/ticket', {
           owner: current_account.address,
-          filter: {
-            Package: utilsSui.PACKAGE_ID,
-          },
-          options: {
-            showContent: true,
-          },
         });
 
-        const parse = nfts.data.map(meta => meta.data?.content) as unknown as {
-          fields: TypeNFTMetadata;
-        }[];
-
-        return parse;
+        return data;
       }
     },
   });
@@ -79,7 +69,9 @@ export default () => {
               position="relative"
             >
               <Stack>
-                <MyTicket amount={data?.length || 0} />
+                {current_account?.address ? (
+                  <MyTicket amount={data ? data.quantity : 0} />
+                ) : null}
 
                 <Attention>
                   spend 10 tickets to forge 1 random NFT. The rarity is
@@ -91,7 +83,7 @@ export default () => {
                 <FoundrySwapIcon />
 
                 <FoundrySwapChest
-                  amount={data?.length || 0}
+                  amount={data ? data.quantity : 0}
                   quantity={quantity}
                   setQuantity={setQuantity}
                 />
@@ -102,6 +94,7 @@ export default () => {
               <FoundrySwapSubmit
                 quantity={quantity}
                 setQuantity={setQuantity}
+                refetch={refetch}
               />
 
               <Radial

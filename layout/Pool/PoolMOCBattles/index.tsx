@@ -1,5 +1,5 @@
 import { Box, Center, HStack, Icon, Stack, Text } from '@chakra-ui/react';
-import Image from 'next/image';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 
 import PoolTicket from '../PoolTicket';
 
@@ -8,10 +8,15 @@ import IdentifyLinearBody from 'components/IdentifyLinear/IdentifyLinearBody';
 import IdentifyLinearOverlay from 'components/IdentifyLinear/IdentifyLinearOverlay';
 import IdentifyLinearYield from 'components/IdentifyLinear/IdentifyLinearYield';
 import PlayerFill from 'public/fill/player.svg';
-import TicketJPG from 'public/icon/ticket.jpg';
+import { TypePoolMetadata } from 'types/types.pool';
+import { shorten } from 'utils';
 
-export default () => {
-  const random = Math.floor(Math.random() * 6);
+interface PoolMOCBattlesProps {
+  data: TypePoolMetadata[] | undefined;
+}
+
+export default ({ data }: PoolMOCBattlesProps) => {
+  const current_account = useCurrentAccount();
 
   return (
     <Stack
@@ -36,20 +41,22 @@ export default () => {
           <HStack spacing={1.5} color="accents.green">
             <Icon as={PlayerFill} width={5} height={5} />
 
-            <Text fontWeight="semibold">4</Text>
+            <Text fontWeight="semibold">{data?.length}</Text>
           </HStack>
         </Center>
 
-        <Attention />
+        <Attention>
+          Please wait until there are 10 users. The pool will start after that.
+        </Attention>
       </Stack>
 
       <Stack>
-        {['1', '2', '3', '4', '5'].map((meta, index) => {
-          const isYou = index === random;
+        {data?.map(meta => {
+          const isYou = meta.owner === current_account?.address;
 
           return (
             <Center
-              key={meta}
+              key={meta.owner}
               justifyContent="space-between"
               height="4.25rem"
               overflow="hidden"
@@ -86,15 +93,15 @@ export default () => {
                     return 'white';
                   })()}
                 >
-                  {isYou ? 'You' : `0x1eeB...Be1a${index}`}
+                  {isYou ? 'You' : shorten(meta.owner)}
                 </IdentifyLinearYield>
 
                 <HStack spacing={1.5}>
-                  <Image
-                    src={TicketJPG.src}
-                    alt={TicketJPG.src}
-                    width={8}
-                    height={8}
+                  <PoolTicket
+                    variant={{
+                      width: 8,
+                      height: 8,
+                    }}
                   />
 
                   <IdentifyLinearYield
@@ -104,7 +111,7 @@ export default () => {
                       return 'shader';
                     })()}
                   >
-                    {index}x
+                    1x
                   </IdentifyLinearYield>
                 </HStack>
               </IdentifyLinearBody>

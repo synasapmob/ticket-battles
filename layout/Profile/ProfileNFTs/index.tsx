@@ -15,24 +15,12 @@ import { TypeNFTMetadata } from 'types/types.nft';
 import utilsSui from 'utils/utils.sui';
 
 export default ({ params }: ProfilePageProps) => {
-  const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['profile', params.address],
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['ticket_get'],
     queryFn: async () => {
-      const nfts = await utilsSui.getSuiClient.getOwnedObjects({
-        owner: params.address,
-        filter: {
-          Package: utilsSui.PACKAGE_ID,
-        },
-        options: {
-          showContent: true,
-        },
-      });
+      const { data } = await axios.get<TypeTicketMetadata[]>('/api/ticket');
 
-      const parse = nfts.data.map(meta => meta.data?.content) as unknown as {
-        fields: TypeNFTMetadata;
-      }[];
-
-      return parse;
+      return data;
     },
   });
 

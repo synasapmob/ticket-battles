@@ -1,4 +1,6 @@
 import { Box, Center, Container, HStack, theme } from '@chakra-ui/react';
+import Image from 'next/image';
+import Link from 'next/link';
 
 import HeaderAccount from './HeaderAccount';
 import HeaderBalance from './HeaderBalance';
@@ -6,6 +8,7 @@ import HeaderDrawer from './HeaderDrawer';
 import HeaderNotification from './HeaderNotification';
 
 import ConnectWalletWrapper from 'components/ConnectWallet/ConnectWalletWrapper';
+import LogoPNG from 'public/icon/logo.png';
 
 export default () => {
   return (
@@ -23,7 +26,9 @@ export default () => {
         maxWidth={theme.breakpoints.xl}
         justifyContent="space-between"
       >
-        <h1>logo here</h1>
+        <Link href="/">
+          <Image src={LogoPNG.src} alt={LogoPNG.src} width={200} height={68} />
+        </Link>
 
         <ConnectWalletWrapper
           render={account => (

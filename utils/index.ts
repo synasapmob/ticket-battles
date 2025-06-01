@@ -315,3 +315,18 @@ export const getNameOfRarity = (rarity: number) => {
 
   return 'Common';
 };
+
+/* 
+  - get sum of array and return total number 
+    result [1, 2, 3] // 6
+*/
+export const sumNumber = (numbers: number[]) => {
+  const NOT_NaN = 0;
+
+  const instance = numbers.reduce(
+    (prev, current) => (prev || NOT_NaN) + (current || NOT_NaN),
+    NOT_NaN
+  );
+
+  return instance;
+};

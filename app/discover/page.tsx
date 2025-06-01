@@ -1,8 +1,8 @@
 'use client';
 
 import { AspectRatio, Box, Container, Skeleton, theme } from '@chakra-ui/react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import Image from 'next/image';
 import React from 'react';
 
@@ -18,11 +18,8 @@ import ProfileNFTsGrid from 'layout/Profile/ProfileNFTs/ProfileNFTsGrid';
 import { TypeNFTMetadata } from 'types/types.nft';
 import { convertHex, getNFTsByIPFS } from 'utils';
 import utilsConstants from 'utils/utils.constants';
-import utilsSui from 'utils/utils.sui';
 
 export default () => {
-  const current_account = useCurrentAccount();
-
   const getNFTsFromIPFS = useInfiniteQuery({
     queryKey: [`create_nft_base`],
     queryFn: async () => {
@@ -43,29 +40,13 @@ export default () => {
   });
 
   const getNFTs = useQuery({
-    queryKey: ['profile', current_account?.address],
+    queryKey: ['nft_get'],
     queryFn: async () => {
-      if (current_account?.address) {
-        const nfts = await utilsSui.getSuiClient.getOwnedObjects({
-          owner: current_account.address,
-          filter: {
-            Package: utilsSui.PACKAGE_ID,
-          },
-          options: {
-            showContent: true,
-          },
-        });
+      const { data } = await axios.get<TypeNFTMetadata[]>('/api/nft');
 
-        const parse = nfts.data.map(meta => meta.data?.content) as unknown as {
-          fields: TypeNFTMetadata;
-        }[];
-
-        return parse;
-      }
+      return data;
     },
   });
-
-  console.log(getNFTs.data);
 
   const { objserverStart } = useObjserver({
     fetchNextPage: getNFTsFromIPFS.fetchNextPage,
@@ -83,7 +64,7 @@ export default () => {
     >
       <Back />
 
-      {getNFTsFromIPFS.isLoading && (
+      {(getNFTsFromIPFS.isLoading || getNFTs.isLoading) && (
         <ProfileNFTsGrid>
           {React.Children.toArray(
             [...Array(10)].map(() => <Skeleton width="full" height={60} />)
@@ -91,14 +72,16 @@ export default () => {
         </ProfileNFTsGrid>
       )}
 
-      {!getNFTsFromIPFS.isLoading && (
+      {!(getNFTsFromIPFS.isLoading || getNFTs.isLoading) && (
         <>
           {getNFTsFromIPFS.data?.pages.length ? (
             <ProfileNFTsGrid>
               {getNFTsFromIPFS.data.pages.map((meta, index, array) => {
                 const [name, tokenId] = meta.name.split('#');
 
-                const isLocked = index % 2 === 0;
+                const isLocked = getNFTs?.data?.some(
+                  meta => meta?.tokenId === Number(tokenId)
+                );
 
                 return (
                   <CardNFTLayout

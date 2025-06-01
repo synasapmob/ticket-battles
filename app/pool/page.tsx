@@ -1,17 +1,40 @@
 'use client';
 
-import { Box, Container, Flex, theme } from '@chakra-ui/react';
-import { useState } from 'react';
+import { Box, Container, Flex, Skeleton, theme } from '@chakra-ui/react';
+import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useEffect, useState } from 'react';
 
 import Back from 'components/Back';
 import PoolBanner from 'layout/Pool/PoolBanner';
 import PoolJoinBattles from 'layout/Pool/PoolJoinBattles';
 import PoolMOCBattles from 'layout/Pool/PoolMOCBattles';
 import PoolProgress from 'layout/Pool/PoolProgress';
+import { TypePoolMetadata } from 'types/types.pool';
 
 export default () => {
+  const current_account = useCurrentAccount();
+
+  const [isProgress, setIsProgress] = useState<string>();
   const [isJoin, setJoin] = useState<boolean>();
-  const [isProgress, setIsProgress] = useState<boolean>();
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['pool_get'],
+    queryFn: async () => {
+      const { data } = await axios.get<TypePoolMetadata[]>('/api/pool');
+
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (data?.length) {
+      const isJoin = data.some(arg => arg.owner === current_account?.address);
+
+      setJoin(isJoin);
+    }
+  }, [current_account?.address, data]);
 
   return (
     <Container
@@ -35,9 +58,21 @@ export default () => {
             lg: '40%',
           }}
         >
-          {isJoin && <PoolMOCBattles />}
+          {isLoading && <Skeleton height="lg" />}
 
-          {!isJoin && <PoolJoinBattles setJoin={setJoin} />}
+          {!isLoading && (
+            <>
+              {isJoin && <PoolMOCBattles data={data} />}
+
+              {!isJoin && (
+                <PoolJoinBattles
+                  setIsProgress={setIsProgress}
+                  setJoin={setJoin}
+                  onSuccess={refetch}
+                />
+              )}
+            </>
+          )}
         </Box>
 
         <Box
@@ -48,14 +83,11 @@ export default () => {
         >
           <PoolBanner />
 
-          {isJoin && (
-            <PoolProgress
-              isJoin={isJoin}
-              isProgress={isProgress}
-              setIsProgress={setIsProgress}
-              setJoin={setJoin}
-            />
-          )}
+          <PoolProgress
+            isJoin={isJoin}
+            isProgress={isProgress}
+            setIsProgress={setIsProgress}
+          />
         </Box>
       </Flex>
     </Container>

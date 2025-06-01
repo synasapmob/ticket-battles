@@ -2,10 +2,10 @@ import { Box, Image } from '@chakra-ui/react';
 import { AnimatePresence } from 'framer-motion';
 
 import ChakraBox from 'components/ChakraBox';
+import Image4WEBP from 'public/icon/banner.png';
 import Image1WEBP from 'public/image/image_1.webp';
 import Image2WEBP from 'public/image/image_2.webp';
 import Image3WEBP from 'public/image/image_3.webp';
-import Image4WEBP from 'public/image/image_4.webp';
 
 interface HomeArticleBannerProps {
   hover: number | undefined;

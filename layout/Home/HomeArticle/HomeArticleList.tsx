@@ -4,11 +4,11 @@ import Link from 'next/link';
 import SoundWrapper from 'components/SoundWrapper';
 import Banner1WEBP from 'public/banner/banner_1.webp';
 import Banner2WEBP from 'public/banner/banner_2.webp';
-import Banner3WEBP from 'public/banner/banner_3.webp';
 import BattleFill from 'public/fill/battle.svg';
 import FoundryFill from 'public/fill/foundry.svg';
 import NFTFill from 'public/fill/nft.svg';
 import PlayFill from 'public/fill/play.svg';
+import Banner3WEBP from 'public/icon/banner.png';
 
 interface ListHomeProps {
   heading: string;

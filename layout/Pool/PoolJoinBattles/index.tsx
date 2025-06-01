@@ -1,43 +1,40 @@
 import { Skeleton, Stack, Text } from '@chakra-ui/react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import axios from 'axios';
+import { Dispatch, SetStateAction, useState } from 'react';
 
 import Attention from 'components/Attention';
 import Button3D from 'components/Button/Button3D';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
 import PoolTicket from 'layout/Pool/PoolTicket';
-import { TypeNFTMetadata } from 'types/types.nft';
-import utilsSui from 'utils/utils.sui';
+import { TypeTicketMetadata } from 'types/types.ticket';
+
 interface PoolJoinBattlesProps {
-  setJoin: React.Dispatch<React.SetStateAction<boolean | undefined>>;
+  setIsProgress: Dispatch<SetStateAction<string | undefined>>;
+  setJoin: Dispatch<SetStateAction<boolean | undefined>>;
+  onSuccess: () => void;
 }
 
-export default ({ setJoin }: PoolJoinBattlesProps) => {
+export default ({
+  setIsProgress,
+  setJoin,
+  onSuccess,
+}: PoolJoinBattlesProps) => {
   const current_account = useCurrentAccount();
 
   const [loading, setLoading] = useState<string>();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['profile', current_account?.address],
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['ticket_put', current_account?.address],
     queryFn: async () => {
       if (current_account?.address) {
-        const nfts = await utilsSui.getSuiClient.getOwnedObjects({
+        const { data } = await axios.put<TypeTicketMetadata>('/api/ticket', {
           owner: current_account.address,
-          filter: {
-            Package: utilsSui.PACKAGE_ID,
-          },
-          options: {
-            showContent: true,
-          },
         });
 
-        const parse = nfts.data.map(meta => meta.data?.content) as unknown as {
-          fields: TypeNFTMetadata;
-        }[];
-
-        return parse;
+        return data;
       }
     },
   });
@@ -56,7 +53,7 @@ export default ({ setJoin }: PoolJoinBattlesProps) => {
           position="relative"
         >
           <Stack>
-            <MyTicket amount={data?.length || 0} />
+            <MyTicket amount={data ? data.quantity : 0} />
 
             <Attention>
               Use 1 ticket to enter the pool. The battle will automatically
@@ -81,17 +78,29 @@ export default ({ setJoin }: PoolJoinBattlesProps) => {
               shape="purple"
               justifyContent="center"
               px={6}
-              isDisabled={!current_account?.address || !data?.length}
+              isDisabled={!current_account?.address || !data}
               isLoading={loading === 'join_battle' || isLoading}
               onClick={async () => {
                 try {
                   setLoading('join_battle');
 
-                  await new Promise(resolve => {
-                    setTimeout(() => resolve('hi'), 500);
+                  if (!current_account?.address) throw 'not found';
+
+                  const { data } = await axios.post('/api/pool', {
+                    owner: current_account.address,
                   });
 
+                  if (data?.winner) {
+                    setTimeout(() => {
+                      setIsProgress(data.winner);
+                      onSuccess();
+                    }, 5000);
+                  } else {
+                    onSuccess();
+                  }
+
                   setJoin(true);
+                  refetch();
                 } finally {
                   setLoading(undefined);
                 }
