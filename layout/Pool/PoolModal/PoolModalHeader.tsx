@@ -1,6 +1,8 @@
 import { Box, Text } from '@chakra-ui/react';
 
-export default () => {
+import { shorten } from 'utils';
+
+export default ({ isProgress }: { isProgress: string }) => {
   return (
     <>
       {/* <Image
@@ -20,7 +22,8 @@ export default () => {
         </Text>
 
         <Text color="shader.a.200">
-          Congratulations! You’ve successfully received an NFT.
+          Congratulations! You’ve successfully received an NFT.{' '}
+          <Text as="span">{shorten(isProgress)}</Text>
         </Text>
       </Box>
     </>

@@ -1,49 +1,36 @@
 import { Skeleton, Stack, Text } from '@chakra-ui/react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { Dispatch, SetStateAction, useState } from 'react';
+import {
+  useCurrentAccount,
+  useSignAndExecuteTransaction,
+} from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import { UseQueryResult } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import Attention from 'components/Attention';
 import Button3D from 'components/Button/Button3D';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
 import PoolTicket from 'layout/Pool/PoolTicket';
-import { TypeTicketMetadata } from 'types/types.ticket';
+import { formatNumber, waitForSeconds } from 'utils';
+import utilsSui from 'utils/utils.sui';
 
 interface PoolJoinBattlesProps {
-  setIsProgress: Dispatch<SetStateAction<string | undefined>>;
-  setJoin: Dispatch<SetStateAction<boolean | undefined>>;
+  getTicketOwner: UseQueryResult<string[] | undefined, Error>;
   onSuccess: () => void;
 }
 
-export default ({
-  setIsProgress,
-  setJoin,
-  onSuccess,
-}: PoolJoinBattlesProps) => {
+export default ({ getTicketOwner, onSuccess }: PoolJoinBattlesProps) => {
+  const signTransaction = useSignAndExecuteTransaction();
   const current_account = useCurrentAccount();
 
   const [loading, setLoading] = useState<string>();
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['ticket_put', current_account?.address],
-    queryFn: async () => {
-      if (current_account?.address) {
-        const { data } = await axios.put<TypeTicketMetadata>('/api/ticket', {
-          owner: current_account.address,
-        });
-
-        return data;
-      }
-    },
-  });
-
   return (
     <>
-      {isLoading && <Skeleton height="lg" />}
+      {getTicketOwner.isLoading && <Skeleton height="lg" />}
 
-      {!isLoading && (
+      {!getTicketOwner.isLoading && (
         <Stack
           spacing={8}
           padding={4}
@@ -53,7 +40,7 @@ export default ({
           position="relative"
         >
           <Stack>
-            <MyTicket amount={data ? data.quantity : 0} />
+            <MyTicket amount={formatNumber(getTicketOwner.data?.length || 0)} />
 
             <Attention>
               Use 1 ticket to enter the pool. The battle will automatically
@@ -78,29 +65,43 @@ export default ({
               shape="purple"
               justifyContent="center"
               px={6}
-              isDisabled={!current_account?.address || !data}
-              isLoading={loading === 'join_battle' || isLoading}
+              isDisabled={
+                !current_account?.address || !getTicketOwner.data?.length
+              }
+              isLoading={loading === 'join_battle' || getTicketOwner.isLoading}
               onClick={async () => {
                 try {
                   setLoading('join_battle');
 
-                  if (!current_account?.address) throw 'not found';
-
-                  const { data } = await axios.post('/api/pool', {
-                    owner: current_account.address,
-                  });
-
-                  if (data?.winner) {
-                    setTimeout(() => {
-                      setIsProgress(data.winner);
-                      onSuccess();
-                    }, 5000);
-                  } else {
-                    onSuccess();
+                  if (
+                    !current_account?.address ||
+                    !getTicketOwner.data?.length
+                  ) {
+                    throw 'not found';
                   }
 
-                  setJoin(true);
-                  refetch();
+                  const tx = new Transaction();
+
+                  tx.moveCall({
+                    target: `${utilsSui.PROGRAM.PACKAGE}::pool::join`,
+                    arguments: [
+                      tx.object(utilsSui.PROGRAM.POOL),
+                      tx.object(utilsSui.PROGRAM.COLLECTION),
+                      tx.object(getTicketOwner.data[0]),
+                      //                       _pool: &mut Pool,
+                      // _collection: &mut nft::Collection,
+                      // _ticket: Ticket,
+                    ],
+                  });
+
+                  await signTransaction.mutateAsync({
+                    transaction: tx,
+                  });
+
+                  await waitForSeconds(() => {
+                    onSuccess();
+                    getTicketOwner.refetch();
+                  });
                 } finally {
                   setLoading(undefined);
                 }

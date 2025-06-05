@@ -1,3 +1,5 @@
 export type TypePoolMetadata = {
-  owner: string;
+  participant: string;
+  begin: boolean;
+  next_id: number;
 };

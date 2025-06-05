@@ -3,7 +3,6 @@
 import { Box, Container, Flex, Skeleton, Stack, theme } from '@chakra-ui/react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import { useState } from 'react';
 
 import Attention from 'components/Attention';
@@ -15,25 +14,29 @@ import FoundrySwapChest from 'layout/Foundry/FoundrySwap/FoundrySwapChest';
 import FoundrySwapIcon from 'layout/Foundry/FoundrySwap/FoundrySwapIcon';
 import FoundrySwapSubmit from 'layout/Foundry/FoundrySwap/FoundrySwapSubmit';
 import FoundrySwapTicket from 'layout/Foundry/FoundrySwap/FoundrySwapTicket';
-import { TypeTicketMetadata } from 'types/types.ticket';
+import { formatNumber } from 'utils';
+import utilsSui from 'utils/utils.sui';
 
 export default () => {
   const current_account = useCurrentAccount();
 
-  const [quantity, setQuantity] = useState<string>();
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['ticket_put', current_account?.address],
+  const getTicketOwner = useQuery({
+    queryKey: ['ticket_owner', current_account?.address],
     queryFn: async () => {
       if (current_account?.address) {
-        const { data } = await axios.put<TypeTicketMetadata>('/api/ticket', {
+        const { data } = await utilsSui.getSuiClient.getOwnedObjects({
           owner: current_account.address,
+          filter: {
+            StructType: `${utilsSui.PROGRAM.PACKAGE}::ticket::Ticket`,
+          },
         });
 
-        return data;
+        return data.map(meta => String(meta.data?.objectId));
       }
     },
   });
+
+  const [quantity, setQuantity] = useState<string>();
 
   return (
     <Container
@@ -57,9 +60,9 @@ export default () => {
             lg: '40%',
           }}
         >
-          {isLoading && <Skeleton height="lg" />}
+          {getTicketOwner.isLoading && <Skeleton height="lg" />}
 
-          {!isLoading && (
+          {!getTicketOwner.isLoading && (
             <Stack
               spacing={8}
               padding={4}
@@ -70,7 +73,13 @@ export default () => {
             >
               <Stack>
                 {current_account?.address ? (
-                  <MyTicket amount={data ? data.quantity : 0} />
+                  <MyTicket
+                    amount={
+                      getTicketOwner.data
+                        ? formatNumber(getTicketOwner.data.length)
+                        : 0
+                    }
+                  />
                 ) : null}
 
                 <Attention>
@@ -83,7 +92,7 @@ export default () => {
                 <FoundrySwapIcon />
 
                 <FoundrySwapChest
-                  amount={data ? data.quantity : 0}
+                  amount={getTicketOwner.data ? getTicketOwner.data.length : 0}
                   quantity={quantity}
                   setQuantity={setQuantity}
                 />
@@ -92,9 +101,9 @@ export default () => {
               </Stack>
 
               <FoundrySwapSubmit
+                getTicketOwner={getTicketOwner}
                 quantity={quantity}
                 setQuantity={setQuantity}
-                refetch={refetch}
               />
 
               <Radial

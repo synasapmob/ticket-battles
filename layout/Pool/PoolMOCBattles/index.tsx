@@ -12,10 +12,10 @@ import { TypePoolMetadata } from 'types/types.pool';
 import { shorten } from 'utils';
 
 interface PoolMOCBattlesProps {
-  data: TypePoolMetadata[] | undefined;
+  pools: TypePoolMetadata[];
 }
 
-export default ({ data }: PoolMOCBattlesProps) => {
+export default ({ pools }: PoolMOCBattlesProps) => {
   const current_account = useCurrentAccount();
 
   return (
@@ -41,7 +41,7 @@ export default ({ data }: PoolMOCBattlesProps) => {
           <HStack spacing={1.5} color="accents.green">
             <Icon as={PlayerFill} width={5} height={5} />
 
-            <Text fontWeight="semibold">{data?.length}</Text>
+            <Text fontWeight="semibold">{pools.length}</Text>
           </HStack>
         </Center>
 
@@ -51,12 +51,12 @@ export default ({ data }: PoolMOCBattlesProps) => {
       </Stack>
 
       <Stack>
-        {data?.map(meta => {
-          const isYou = meta.owner === current_account?.address;
+        {pools.map(meta => {
+          const isYou = meta.participant === current_account?.address;
 
           return (
             <Center
-              key={meta.owner}
+              key={meta.participant}
               justifyContent="space-between"
               height="4.25rem"
               overflow="hidden"
@@ -93,7 +93,7 @@ export default ({ data }: PoolMOCBattlesProps) => {
                     return 'white';
                   })()}
                 >
-                  {isYou ? 'You' : shorten(meta.owner)}
+                  {isYou ? 'You' : shorten(meta.participant)}
                 </IdentifyLinearYield>
 
                 <HStack spacing={1.5}>

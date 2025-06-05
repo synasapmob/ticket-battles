@@ -37,7 +37,7 @@ export default ({ onClose }: PoolModalProps) => {
           />
 
           <Stack spacing={4} textAlign="center" alignItems="center">
-            <PoolModalHeader />
+            <PoolModalHeader isProgress={''} />
 
             <HStack justifyContent="center">
               <Button3D shape="green" px={6} onClick={onClose}>

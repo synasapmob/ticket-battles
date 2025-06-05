@@ -1,6 +1,5 @@
 import { Skeleton } from '@chakra-ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import React from 'react';
 
 import ProfileNFTsGrid from '../ProfileNFTs/ProfileNFTsGrid';
@@ -10,17 +9,20 @@ import AvatarFallback from 'components/Avatar/AvatarFallback';
 import ButtonTryAgain from 'components/Button/ButtonTryAgain';
 import CardNFTLayout from 'components/Card/CardNFT/CardNFTLayout';
 import TicketJPG from 'public/icon/ticket.jpg';
-import { TypeTicketMetadata } from 'types/types.ticket';
+import utilsSui from 'utils/utils.sui';
 
 export default ({ params }: ProfilePageProps) => {
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['ticket_put', params.address],
+    queryKey: ['ticket_owner', params.address],
     queryFn: async () => {
-      const { data } = await axios.put<TypeTicketMetadata>('/api/ticket', {
+      const { data } = await utilsSui.getSuiClient.getOwnedObjects({
         owner: params.address,
+        filter: {
+          StructType: `${utilsSui.PROGRAM.PACKAGE}::ticket::Ticket`,
+        },
       });
 
-      return data;
+      return data.map(meta => String(meta.data?.objectId));
     },
   });
 
@@ -38,13 +40,11 @@ export default ({ params }: ProfilePageProps) => {
         <>
           {data ? (
             <ProfileNFTsGrid>
-              {React.Children.toArray(
-                [...Array(data.quantity)].map(() => (
-                  <CardNFTLayout>
-                    <AvatarFallback src={TicketJPG.src} alt={TicketJPG.src} />
-                  </CardNFTLayout>
-                ))
-              )}
+              {data.map(meta => (
+                <CardNFTLayout key={meta}>
+                  <AvatarFallback src={TicketJPG.src} alt={TicketJPG.src} />
+                </CardNFTLayout>
+              ))}
             </ProfileNFTsGrid>
           ) : (
             <ButtonTryAgain isFetching={isFetching} refetch={refetch} />

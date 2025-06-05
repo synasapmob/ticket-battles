@@ -1,7 +1,7 @@
 import { Center, Text } from '@chakra-ui/react';
 
 interface MyTicketProps {
-  amount: number;
+  amount: number | string;
 }
 
 export default ({ amount }: MyTicketProps) => {

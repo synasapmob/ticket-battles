@@ -22,10 +22,11 @@ import { useState } from 'react';
 
 import Back from 'components/Back';
 import ProfileHeader from 'layout/Profile/ProfileHeader';
+import ProfileNFTs from 'layout/Profile/ProfileNFTs';
 import ProfileTickets from 'layout/Profile/ProfileTickets';
 
 interface ListTabProps {
-  key: 'My Tickets';
+  key: 'My Tickets' | 'My NFTs';
   panel: JSX.Element;
 }
 
@@ -36,6 +37,10 @@ export default ({ params }: ProfilePageProps) => {
     {
       key: 'My Tickets',
       panel: <ProfileTickets params={params} />,
+    },
+    {
+      key: 'My NFTs',
+      panel: <ProfileNFTs params={params} />,
     },
   ];
 

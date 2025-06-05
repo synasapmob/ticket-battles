@@ -6,7 +6,7 @@ const API_MOONCOIN = 'https://dashboard.mooncoin.co/api';
 const RPC_ECLIPSE = 'https://mainnetbeta-rpc.eclipse.xyz';
 const MAX_TRANSACTIONS = 5;
 
-const SWAP_TICKET = 10;
+const SWAP_TICKET = 1;
 
 const MOCK_MY_CHESTs = 32;
 const MOCK_MY_NFTs = 3;
@@ -17,6 +17,8 @@ const SOUND_ENABLE_GLOBAL = 'SOUND_ENABLE_GLOBAL';
 const IPFS_GATEWAY = 'https://ipfs-gw.openmark.io/ipfs/';
 const IPFS_PREFIX = 'ipfs://';
 const IPFS_ENDPOINT = 'QmWQHJeZYwqHzbpCtLKJ1wvcj4pvsR2G2o28YRjQRRqg2T';
+const PRICE_MINT = 0.45;
+const DECIMAL = 10 ** 8;
 
 export default {
   WALLET,
@@ -39,4 +41,6 @@ export default {
   IPFS_GATEWAY,
   IPFS_PREFIX,
   IPFS_ENDPOINT,
+  PRICE_MINT,
+  DECIMAL,
 };

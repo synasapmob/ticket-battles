@@ -1,5 +1,5 @@
 export type TypeNFTMetadata = {
   owner: string;
-  createdAt: string;
-  tokenId: number;
+  object_id: string;
+  tokenId: string;
 };

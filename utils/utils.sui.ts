@@ -14,8 +14,12 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
     },
   });
 
-const PACKAGE_ID =
-  '0x847947b3506fb0bbfab117d5a7004e549aab7f866fcc32e707c34792421a80b6';
+const PROGRAM = {
+  PACKAGE: '0xd7782cea56d54201f70d42722c3de6104885668856aa1dc6868f0d4ce28a146b',
+
+  COLLECTION:
+    '0x84a16ea896b3860b86a00223c6ace53f6c1ad3c7b5f48daf6134a2b4b57dab28',
+};
 
 const getSuiClient = new SuiClient({
   network: 'testnet',
@@ -27,5 +31,5 @@ export default {
   useNetworkVariables,
   networkConfig,
   getSuiClient,
-  PACKAGE_ID,
+  PROGRAM,
 };

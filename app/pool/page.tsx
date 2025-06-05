@@ -3,8 +3,6 @@
 import { Box, Container, Flex, Skeleton, theme } from '@chakra-ui/react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { useEffect, useState } from 'react';
 
 import Back from 'components/Back';
 import PoolBanner from 'layout/Pool/PoolBanner';
@@ -12,29 +10,47 @@ import PoolJoinBattles from 'layout/Pool/PoolJoinBattles';
 import PoolMOCBattles from 'layout/Pool/PoolMOCBattles';
 import PoolProgress from 'layout/Pool/PoolProgress';
 import { TypePoolMetadata } from 'types/types.pool';
+import utilsSui from 'utils/utils.sui';
 
 export default () => {
   const current_account = useCurrentAccount();
 
-  const [isProgress, setIsProgress] = useState<string>();
-  const [isJoin, setJoin] = useState<boolean>();
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['pool_get'],
+  const getPoolsFromEvents = useQuery({
+    queryKey: ['pool_total'],
     queryFn: async () => {
-      const { data } = await axios.get<TypePoolMetadata[]>('/api/pool');
+      const { data } = await utilsSui.getSuiClient.queryEvents({
+        query: {
+          MoveEventType: `${utilsSui.PROGRAM.PACKAGE}::pool::PoolEvent`,
+        },
+      });
 
-      return data;
+      return data.map(meta => meta.parsedJson) as TypePoolMetadata[];
     },
   });
 
-  useEffect(() => {
-    if (data?.length) {
-      const isJoin = data.some(arg => arg.owner === current_account?.address);
+  const getTicketOwner = useQuery({
+    queryKey: ['ticket_owner', current_account?.address],
+    queryFn: async () => {
+      if (current_account?.address) {
+        const { data } = await utilsSui.getSuiClient.getOwnedObjects({
+          owner: current_account.address,
+          filter: {
+            StructType: `${utilsSui.PROGRAM.PACKAGE}::ticket::Ticket`,
+          },
+        });
 
-      setJoin(isJoin);
-    }
-  }, [current_account?.address, data]);
+        return data.map(meta => String(meta.data?.objectId));
+      }
+    },
+  });
+
+  const isJoined = getPoolsFromEvents.data?.some(
+    meta => meta?.participant === current_account?.address
+  );
+
+  const isProgress = getPoolsFromEvents.data?.some(meta => meta?.begin);
+
+  console.log(getPoolsFromEvents.data);
 
   return (
     <Container
@@ -58,17 +74,20 @@ export default () => {
             lg: '40%',
           }}
         >
-          {isLoading && <Skeleton height="lg" />}
+          {(getPoolsFromEvents.isLoading || getTicketOwner.isLoading) && (
+            <Skeleton height="lg" />
+          )}
 
-          {!isLoading && (
+          {!(getPoolsFromEvents.isLoading || getTicketOwner.isLoading) && (
             <>
-              {isJoin && <PoolMOCBattles data={data} />}
+              {isJoined && getPoolsFromEvents.data?.length && (
+                <PoolMOCBattles pools={getPoolsFromEvents.data} />
+              )}
 
-              {!isJoin && (
+              {!isJoined && (
                 <PoolJoinBattles
-                  setIsProgress={setIsProgress}
-                  setJoin={setJoin}
-                  onSuccess={refetch}
+                  getTicketOwner={getTicketOwner}
+                  onSuccess={getPoolsFromEvents.refetch}
                 />
               )}
             </>
@@ -84,9 +103,9 @@ export default () => {
           <PoolBanner />
 
           <PoolProgress
-            isJoin={isJoin}
+            isJoined={isJoined}
             isProgress={isProgress}
-            setIsProgress={setIsProgress}
+            onSuccess={getPoolsFromEvents.refetch}
           />
         </Box>
       </Flex>

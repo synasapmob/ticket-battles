@@ -59,7 +59,7 @@ export default ({ hover, setHover }: HomeArticleListProps) => {
       Each battle gives you a shot at something cool.
       It’s luck, strategy — and a little chaos.`,
       bottom: 'Get Started',
-      href: '/pool',
+      href: '#',
 
       variant: {
         color: 'accents.pink',
@@ -113,6 +113,7 @@ export default ({ hover, setHover }: HomeArticleListProps) => {
             overflow="hidden"
             role="group"
             transitionDuration="faster"
+            opacity={meta.href === '#' ? 0.65 : undefined}
             borderLeft={`0 solid`}
             borderColor={meta.variant.color}
             flexDirection={{

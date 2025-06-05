@@ -21,7 +21,11 @@ export default ({ quantity, setQuantity }: PoolQuantityProps) => {
       min={1}
       defaultValue={quantity}
       value={quantity}
-      onChange={event => setQuantity(event)}
+      onChange={event => {
+        const parse = event.replaceAll('.', '').replaceAll('-', '');
+
+        setQuantity(parse);
+      }}
     >
       <NumberDecrementStepper>
         <Icon as={MinusIcon} />

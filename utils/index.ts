@@ -106,7 +106,7 @@ export const formatNumber = (
 };
 
 export const formatNumberDecimal = (number: number | string) => {
-  const decimal = 10 ** 9;
+  const decimal = 10 ** 8;
 
   return BigNumber(number).dividedBy(decimal).toNumber();
 };
@@ -329,4 +329,15 @@ export const sumNumber = (numbers: number[]) => {
   );
 
   return instance;
+};
+
+// handler refetch or do something but need wait for seconds
+export const waitForSeconds = async (cb: () => void, seconds?: number) => {
+  await new Promise(resolve => {
+    setTimeout(() => {
+      resolve('done');
+
+      cb();
+    }, seconds || 2000);
+  });
 };

@@ -2,7 +2,6 @@
 
 import { AspectRatio, Box, Container, Skeleton, theme } from '@chakra-ui/react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import Image from 'next/image';
 import React from 'react';
 
@@ -18,6 +17,7 @@ import ProfileNFTsGrid from 'layout/Profile/ProfileNFTs/ProfileNFTsGrid';
 import { TypeNFTMetadata } from 'types/types.nft';
 import { convertHex, getNFTsByIPFS } from 'utils';
 import utilsConstants from 'utils/utils.constants';
+import utilsSui from 'utils/utils.sui';
 
 export default () => {
   const getNFTsFromIPFS = useInfiniteQuery({
@@ -39,12 +39,16 @@ export default () => {
     initialPageParam: 1,
   });
 
-  const getNFTs = useQuery({
-    queryKey: ['nft_get'],
+  const getNFTsFromEvents = useQuery({
+    queryKey: ['nft_total'],
     queryFn: async () => {
-      const { data } = await axios.get<TypeNFTMetadata[]>('/api/nft');
+      const { data } = await utilsSui.getSuiClient.queryEvents({
+        query: {
+          MoveEventType: `${utilsSui.PROGRAM.PACKAGE}::nft::NFTEvent`,
+        },
+      });
 
-      return data;
+      return data.map(meta => meta.parsedJson) as TypeNFTMetadata[];
     },
   });
 
@@ -64,7 +68,7 @@ export default () => {
     >
       <Back />
 
-      {(getNFTsFromIPFS.isLoading || getNFTs.isLoading) && (
+      {(getNFTsFromIPFS.isLoading || getNFTsFromEvents.isLoading) && (
         <ProfileNFTsGrid>
           {React.Children.toArray(
             [...Array(10)].map(() => <Skeleton width="full" height={60} />)
@@ -72,15 +76,15 @@ export default () => {
         </ProfileNFTsGrid>
       )}
 
-      {!(getNFTsFromIPFS.isLoading || getNFTs.isLoading) && (
+      {!(getNFTsFromIPFS.isLoading || getNFTsFromEvents.isLoading) && (
         <>
           {getNFTsFromIPFS.data?.pages.length ? (
             <ProfileNFTsGrid>
               {getNFTsFromIPFS.data.pages.map((meta, index, array) => {
                 const [name, tokenId] = meta.name.split('#');
 
-                const isLocked = getNFTs?.data?.some(
-                  meta => meta?.tokenId === Number(tokenId)
+                const isLocked = !getNFTsFromEvents?.data?.some(
+                  meta => Number(meta.tokenId) === Number(tokenId)
                 );
 
                 return (
