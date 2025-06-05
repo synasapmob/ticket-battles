@@ -1,0 +1,13 @@
+[package]
+name = "testnet_nft"
+version = "0.0.1"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+ticket_module = "0x0"
+nft_module = "0x0"
+pool_module = "0x0"
+
