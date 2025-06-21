@@ -30,7 +30,7 @@ module ticket_module::ticket {
         _payment: Coin<SUI>, 
         ctx: &mut TxContext,
     ) {
-        assert!(coin::value(&_payment) == PRICE_MINT);
+        assert!(coin::value(&_payment) >= PRICE_MINT);
 
         /* 
             you needs to remove _payment outside memory, but the logical below doesn't have,
@@ -56,5 +56,30 @@ module ticket_module::ticket {
         let Ticket { id, owner: _} = arg;
         id.delete()
     }
-    
+
+    public fun treasury(): (u64, address) {
+        (PRICE_MINT, TREASURY)
+    }
+
+    #[test_only]
+    public fun test_mock_ticket(): Ticket {
+        let mut ctx = tx_context::dummy();
+
+        let ticket = Ticket {
+            id: object::new(&mut ctx),
+            owner: ctx.sender().to_string()
+        };
+
+        ticket
+    }
+
+    #[test]
+    fun test_mint() {
+        let mut ctx = tx_context::dummy();
+
+        let coin: Coin<SUI> = coin::mint_for_testing(PRICE_MINT, &mut ctx);
+
+        mint(coin, &mut ctx);
+    }
+
 }

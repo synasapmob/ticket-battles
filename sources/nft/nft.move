@@ -6,6 +6,7 @@ module nft_module::nft {
     use std::string;
     use sui::event;
     use ticket_module::ticket::{Ticket};
+    use ticket_module::ticket;
 
     // ===== Define =====
     public struct NFT has key, store {
@@ -32,34 +33,38 @@ module nft_module::nft {
         tokenId: u64,
     }
 
-    // public struct CollectionEvent has copy, drop {
-    //     // The Object ID of the NFT
-    //     object_id: ID,
-    //     // The creator of the NFT
-    //     owner: address,
-    //     // The id of the NFT
-    //     next_id: u64,
-    // }
+    public struct CollectionEvent has copy, drop {
+        // The Object ID of the NFT
+        object_id: ID,
+        // The creator of the NFT
+        owner: address,
+        // The id of the NFT
+        next_id: u64,
+    }
 
     // ===== Entrypoints =====
     #[allow(lint(self_transfer))]
-    public fun init_collection(
+    fun init(
         _ctx: &mut TxContext,
     ) {
-        // let sender = _ctx.sender();    
-        let collection = Collection {
-            id: object::new(_ctx),
-            next_id: 0,
-            max_supply: 25, // 25 NFTs
-        };
+        // init collection
+        {
+            let sender = _ctx.sender();
+            let collection = Collection {
+                id: object::new(_ctx),
+                next_id: 0,
+                max_supply: 25, // 25 NFTs
+            };
 
-        // event::emit(CollectionEvent {
-        //     object_id: object::id(&collection),
-        //     next_id: collection.next_id,
-        //     owner: sender,
-        // });
+    
+            event::emit(CollectionEvent {
+                object_id: object::id(&collection),
+                next_id: collection.next_id,
+                owner: sender,
+            });
 
-        transfer::public_share_object(collection)
+            transfer::public_share_object(collection);
+        }
     }
 
     #[allow(lint(self_transfer))]
@@ -96,28 +101,29 @@ module nft_module::nft {
 
     }
 
-    #[allow(lint(self_transfer))]
-    public fun mint_by_random(
-        collection: &mut Collection,
-        _ctx: &mut TxContext,
-    ) {
-        assert!(collection.next_id < collection.max_supply);
+    #[test_only]
+    public fun test_mock_collection(): Collection {
+        let mut ctx = tx_context::dummy();
 
-        // begin create NFT
-        let next_id = collection.next_id + 1;
-        let sender = _ctx.sender();
-        let nft = NFT {
-            id: object::new(_ctx),
-            tokenId: next_id,
-            owner: sender.to_string(),
+        let collection = Collection {
+            id: object::new(&mut ctx),
+            next_id: 0,
+            max_supply: 25, // 25 NFTs
         };
         
-        event::emit(NFTEvent {
-            object_id: object::id(&nft),
-            owner: sender,
-            tokenId: next_id
-        });
+        collection
+    }
 
-        transfer::public_transfer(nft, sender);
+    #[test]
+    fun test_mint() {
+        let mut ctx = tx_context::dummy();
+
+        let mut collection = test_mock_collection();
+        let ticket = ticket::test_mock_ticket();
+
+        mint(&mut collection, ticket, &mut ctx);
+
+        // clean up return
+        transfer::public_transfer(collection, ctx.sender());
     }
 }
