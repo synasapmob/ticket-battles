@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 module ticket_module::ticket {
-    use std::string;
     use sui::event;
     use sui::sui::SUI;
     use sui::coin::{Self, Coin};
-
-    const PRICE_MINT: u64 = 45000000; // 1 SUI = 10^9 MIST
-    const TREASURY: address = @0x05153977c37355b20059e6d2163d6e829786ecffd679e573e8d74757913d50a0;
+    use shared_module::shared;
 
     // ===== Define =====
     public struct Ticket has key, store {
         id: UID,
-        owner: string::String,
+        owner: address,
+        amount: u64,
     }
 
     // ===== Events =====
@@ -22,6 +20,8 @@ module ticket_module::ticket {
         object_id: ID,
         // The creator of the NFT
         owner: address,
+        // the amount of creator minted
+        amount: u64,
     }
 
     // ===== Entrypoints =====
@@ -30,56 +30,109 @@ module ticket_module::ticket {
         _payment: Coin<SUI>, 
         ctx: &mut TxContext,
     ) {
-        assert!(coin::value(&_payment) >= PRICE_MINT);
+        assert!(coin::value(&_payment) >= shared::PRICE_MINT_TICKET());
 
-        /* 
-            you needs to remove _payment outside memory, but the logical below doesn't have,
-            the way to do that, needs transfer to TREASURY or burn it
-        */
-        transfer::public_transfer(_payment, TREASURY);
-
+        let amount = (_payment.value() / shared::PRICE_MINT_TICKET());
         let sender = ctx.sender();
+
         let nft = Ticket {
             id: object::new(ctx),
-            owner: sender.to_string()
+            owner: sender,
+            amount,
         };
 
         event::emit(TicketEvent {
             object_id: object::id(&nft),
             owner: sender,
+            amount
         });
 
         transfer::public_transfer(nft, sender);
+        transfer::public_transfer(_payment, shared::TREASURY_ADMIN());
+    }
+
+    #[allow(lint(self_transfer))]
+    public fun mint_with_amount(
+        ticket: &mut Ticket,
+        _payment: Coin<SUI>,
+        ctx: &mut TxContext,
+    ) {        
+        assert!(coin::value(&_payment) >= shared::PRICE_MINT_TICKET());
+
+        let amount = (_payment.value() / shared::PRICE_MINT_TICKET());
+        ticket.amount = ticket.amount + amount;
+
+        event::emit(TicketEvent {
+            object_id: object::id(ticket),
+            owner: ctx.sender(),
+            amount
+        });
+
+        transfer::public_transfer(_payment, shared::TREASURY_ADMIN());
     }
 
     public fun burn(arg: Ticket, _: &mut TxContext) {
-        let Ticket { id, owner: _} = arg;
+        let Ticket { id, owner: _, amount: _} = arg;
         id.delete()
     }
 
-    public fun treasury(): (u64, address) {
-        (PRICE_MINT, TREASURY)
+    public fun burn_amount(arg: &mut Ticket, amount: u64) {
+        assert!(arg.amount >= amount);
+
+        arg.amount = arg.amount - amount;
     }
 
     #[test_only]
-    public fun test_mock_ticket(): Ticket {
+    public fun test_mock_ticket(amount: u64): Ticket {
         let mut ctx = tx_context::dummy();
 
         let ticket = Ticket {
             id: object::new(&mut ctx),
-            owner: ctx.sender().to_string()
+            owner: ctx.sender(),
+            amount,
         };
 
-        ticket
+        return ticket
     }
 
     #[test]
     fun test_mint() {
         let mut ctx = tx_context::dummy();
 
-        let coin: Coin<SUI> = coin::mint_for_testing(PRICE_MINT, &mut ctx);
+        //  mint with multiple
+        {
+            let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET() * 3, &mut ctx);
 
-        mint(coin, &mut ctx);
+            mint(coin, &mut ctx);
+        };
+
+        // mint with single
+        {
+            let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET(), &mut ctx);
+
+            mint(coin, &mut ctx);
+        }
     }
 
+    #[test]
+    fun test_mint_with_amount(){
+        let mut ctx = tx_context::dummy();
+        let mut ticket = test_mock_ticket(1);
+
+        // mint with multiple
+        {
+            let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET() * 3, &mut ctx);
+
+            mint_with_amount(&mut ticket, coin, &mut ctx);
+        };
+
+        // mint with single
+        {
+            let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET(), &mut ctx);
+
+            mint_with_amount(&mut ticket, coin, &mut ctx);
+        };
+
+        transfer::public_transfer(ticket, ctx.sender());
+    }
 }

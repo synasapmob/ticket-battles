@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 module nft_module::nft {
-
-    use std::string;
     use sui::event;
-    use ticket_module::ticket::{Ticket};
     use ticket_module::ticket;
+    use sui::random;
+    use sui::table;
+    use shared_module::shared;
 
     // ===== Define =====
     public struct NFT has key, store {
@@ -14,13 +14,12 @@ module nft_module::nft {
         // Token id of the token
         tokenId: u64,
         // owner for the token
-        owner: string::String,
+        owner: address,
     }
 
     public struct Collection has key, store {
         id: UID,
-        next_id: u64, // identify next tokenId
-        max_supply: u64, // used token IDs from 0–24
+        minted: table::Table<u64, bool>,
     }
 
     // ===== Events =====
@@ -38,8 +37,6 @@ module nft_module::nft {
         object_id: ID,
         // The creator of the NFT
         owner: address,
-        // The id of the NFT
-        next_id: u64,
     }
 
     // ===== Entrypoints =====
@@ -47,83 +44,163 @@ module nft_module::nft {
     fun init(
         _ctx: &mut TxContext,
     ) {
-        // init collection
-        {
-            let sender = _ctx.sender();
-            let collection = Collection {
-                id: object::new(_ctx),
-                next_id: 0,
-                max_supply: 25, // 25 NFTs
-            };
+        let table = table::new<u64, bool>(_ctx);
 
-    
-            event::emit(CollectionEvent {
-                object_id: object::id(&collection),
-                next_id: collection.next_id,
-                owner: sender,
-            });
-
-            transfer::public_share_object(collection);
-        }
-    }
-
-    #[allow(lint(self_transfer))]
-    public fun mint(
-        collection: &mut Collection,
-        mut _ticket: Ticket,
-        _ctx: &mut TxContext,
-    ) {
-        assert!(collection.next_id < collection.max_supply);
-        
-        // begin handle tickets
-        _ticket.burn(_ctx);
-     
-        // begin increase TokenId
-        let new_id = collection.next_id;
-        collection.next_id = new_id + 1;
-    
-        // begin create NFT
         let sender = _ctx.sender();
-        let nft = NFT {
+        let collection = Collection {
             id: object::new(_ctx),
-            tokenId: new_id,
-            owner: sender.to_string(),
+            minted: table,
         };
-        
-        event::emit(NFTEvent {
-            object_id: object::id(&nft),
+
+        event::emit(CollectionEvent {
+            object_id: object::id(&collection),
             owner: sender,
-            tokenId: new_id,
         });
 
-        // transfer::public_transfer(nft, sender)
-        transfer::public_transfer(nft, sender);
-
+        transfer::public_share_object(collection);
     }
 
-    #[test_only]
-    public fun test_mock_collection(): Collection {
-        let mut ctx = tx_context::dummy();
+    #[allow(lint(public_random))]
+    public fun random_token_id (
+        r: &random::Random,
+        collection: &mut Collection,
+        ctx: &mut TxContext,
+    ): u64 {
+        assert!(collection.minted.length() < shared::MAX_TOKEN());
 
-        let collection = Collection {
-            id: object::new(&mut ctx),
-            next_id: 0,
-            max_supply: 25, // 25 NFTs
+        let mut i = shared::MAX_TOKEN();
+        let mut token_id: u64 = 0;
+
+        while (i > 0) {
+            let mut generator = random::new_generator(r, ctx);
+
+            let random_u64 = generator.generate_u64_in_range(0, shared::MAX_TOKEN());
+            let random_existed = collection.minted.contains(random_u64);
+            
+            if(!random_existed){
+                token_id = random_u64;
+                collection.minted.add(token_id, true);
+
+                break
+            };
+
+            i = i - 1;
         };
+
+        return token_id
+    }
+
+    #[allow(lint(self_transfer), lint(public_random))]
+    public fun mint_with_swap(
+        collection: &mut Collection,
+        ticket: &mut ticket::Ticket,
+        r: &random::Random,
+        mut amount: u64,
+        ctx: &mut TxContext,
+    ){
+        assert!(amount > 0);
+
+        while(amount > 0) {
+            // handler ticket
+            {
+                ticket.burn_amount(shared::PRICE_SWAP_TICKET_TO_GET_NFT());
+            };
+
+            // handler NFT
+            {
+                let token_id = random_token_id(r, collection, ctx);
+                
+                let sender = ctx.sender();
+                let nft = NFT { 
+                    id: object::new(ctx),
+                    tokenId: token_id,
+                    owner: sender,
+                };
+
+                event::emit(NFTEvent {
+                    object_id: object::id(&nft),
+                    owner: sender,
+                    tokenId: token_id,
+                });
+
+                transfer::public_transfer(nft, sender);
+            };
+
+            amount = amount - 1;
+        };
+    }
+
+    #[allow(lint(self_transfer), lint(public_random))]
+    public fun mint_with_random(
+        collection: &mut Collection,
+        participants: &mut vector<address>,
+        r: &random::Random,
+        ctx: &mut TxContext
+    ): address {
+        let winner: address;
+        let token_id: u64;
+
+        // handler randomness
+        {
+            let mut generator = r.new_generator(ctx);
+
+            winner = *participants.borrow(
+                generator.generate_u64_in_range(0, participants.length() - 1)
+            );
+            
+            token_id = random_token_id(r, collection, ctx);
+
+        };
+
+        // handler NFT
+        {     
+            let nft = NFT { 
+                id: object::new(ctx),
+                tokenId: token_id,
+                owner: winner
+            };
+
+            transfer::public_transfer(nft, winner);
+        };
+
+        // handler particpants
+        {
+            let mut size = participants.length();
+
+            while(size > 0){
+                participants.pop_back();
+                size = size - 1;
+            };
+        };
+
+        return winner
+    }
+
+    // #[test]
+    // public fun test_mock_collection(): Collection {
+    //     let mut ctx = tx_context::dummy();
+    //     let table = table::new<u64, bool>(&mut ctx);
+
+    //     let collection = Collection {
+    //         id: object::new(&mut ctx),
+    //         minted: table
+    //     };
         
-        collection
-    }
+    //     return collection
+    // }
 
-    #[test]
-    fun test_mint() {
-        let mut ctx = tx_context::dummy();
+    //   #[test] 
+    // fun test_mint_with_swap() {
+    //     let mut ctx = tx_context::dummy();
+    //     let mut collection = test_mock_collection();
+    //     let mut ticket = ticket::test_mock_ticket(40);
+    //     let mut generator = random::new_generator_for_testing();
 
-        let mut collection = test_mock_collection();
-        let ticket = ticket::test_mock_ticket();
+    //     // let taisao = random::create(ctx);
 
-        mint(&mut collection, ticket, &mut ctx);
+    //     // mint_with_swap(&mut collection, &mut ticket, &mut generator, &mut ctx);
 
-        // clean up return
-        transfer::public_transfer(collection, ctx.sender());
-    }
+    //     ticket.burn(&mut ctx);
+    //     transfer::public_transfer(collection, ctx.sender());
+    // }
 }

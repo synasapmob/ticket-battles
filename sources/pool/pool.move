@@ -2,68 +2,135 @@
 // SPDX-License-Identifier: Apache-2.0
 
 module pool_module::pool {
-  use ticket_module::ticket::{Ticket};
-  use std::string;
   use sui::event;
   use nft_module::nft;
-
-  const ENOUGH_PARTICIPANT: u64 = 2;
+  use ticket_module::ticket;
+  use sui::random;
+  use shared_module::shared;
 
   // ===== Define =====
   public struct Pool has key, store {
     id: UID,
-    // who joined pool
-    participant: string::String,
-    // how many people
-    next_id: u64,
+    participants: vector<address>,
+    winner: Option<address>,
   }
-  
+
   // ===== Events =====
   public struct PoolEvent has copy, drop {
-    participant: address,
-    next_id: u64,
-    begin: bool,
+    participants: vector<address>,
+    winner: Option<address>
   }
 
   // ===== Entrypoints =====
-  public fun init_pool(_ctx: &mut TxContext) {
-    let pool = Pool {
-      id: object::new(_ctx),
-      next_id: 0,
-      participant: _ctx.sender().to_string()
-    };
+  fun init(ctx: &mut TxContext) {
+    let participants = vector::empty<address>();
+    let winner = option::none();
 
-    // event::emit(PoolEvent {
-    //   next_id: pool.next_id,
-    //   participant: pool.participant,
-    //   begin: false,
-    // });
+    let pool = Pool {
+      id: object::new(ctx),
+      participants,
+      winner
+    };
 
     transfer::public_share_object(pool);
   }
     
+  #[allow(lint(self_transfer), lint(public_random))]
   public fun join(
-    _pool: &mut Pool,
-    _collection: &mut nft::Collection,
-    _ticket: Ticket,
-    _ctx: &mut TxContext
-  ) {
-    let mut begin = false;
-    _pool.next_id = _pool.next_id + 1;
+    pool: &mut Pool,
+    collection: &mut nft::Collection,
+    ticket: &mut ticket::Ticket,
+    r: &random::Random,
+    ctx: &mut TxContext
+  ): Option<address> {
+    let sender = ctx.sender();
+    let mut winner = option::none();
 
-    // at time available to start pool
-    if(_pool.next_id == ENOUGH_PARTICIPANT) {
-      nft::mint(_collection, _ticket, _ctx);
-      _pool.next_id = 0;
-      begin = true;
-    }else {
-      _ticket.burn(_ctx);
+    // handler ticket
+    {
+      ticket.burn_amount(1)
+    };
+
+    // handler pool
+    {
+      // allow participant join this pool
+      pool.participants.push_back(sender);
+
+      // who lucky?, winner will be get one NFT with random
+      if(pool.participants.length() >= shared::ENOUGH_PARTICIPANTS_POOL()){
+        winner.fill(nft::mint_with_random(collection, &mut pool.participants, r, ctx));
+      }
     };
 
     event::emit(PoolEvent { 
-      participant: _ctx.sender(),
-      next_id: _pool.next_id,
-      begin
+      participants: pool.participants,
+      winner
     });
+
+    winner
   }
+
+  #[test]
+  fun test_mock_pool(): Pool {
+    let mut ctx = tx_context::dummy();
+    let winner = option::none();
+
+    // mock participants
+    let mut participants = vector::empty<address>();
+    participants.push_back(@0x1231);
+    participants.push_back(@0x1232);
+
+    let pool = Pool {
+      id: object::new(&mut ctx),
+      participants,
+      winner
+    };
+
+    return pool
+  }
+
+  // #[test]
+  // fun test_join() {
+
+  //   // with multiple
+  //   {
+
+  //     let mut i = shared::MAX_TOKEN();
+
+  //     while (i > 0) {
+  //       let mut ctx = tx_context::dummy();
+  //       let mut collection = nft::test_mock_collection();
+  //       let mut ticket = ticket::test_mock_ticket(shared::PRICE_SWAP_TICKET_TO_GET_NFT());
+
+  //       // mock pool
+  //       let mut pool = test_mock_pool();
+
+  //       join(&mut pool, &mut collection, &mut ticket, &mut random::new_generator_for_testing(), &mut ctx);
+
+  //       // cleanup memory
+  //       transfer::public_transfer(collection, ctx.sender());
+  //       transfer::public_transfer(ticket, ctx.sender());
+  //       transfer::public_transfer(pool, ctx.sender());
+
+  //       i = i - 1;
+  //     };
+  //   };
+
+  //   // with single
+  //   {
+  //     let mut ctx = tx_context::dummy();
+  //     let mut collection = nft::test_mock_collection();
+  //     let mut ticket = ticket::test_mock_ticket(shared::PRICE_SWAP_TICKET_TO_GET_NFT());
+
+  //     // mock pool
+  //     let mut pool = test_mock_pool();
+
+  //     join(&mut pool, &mut collection, &mut ticket, &mut random::new_generator_for_testing(), &mut ctx);
+
+  //     // cleanup memory
+  //     transfer::public_transfer(collection, ctx.sender());
+  //     transfer::public_transfer(ticket, ctx.sender());
+  //     transfer::public_transfer(pool, ctx.sender());
+  //   };
+  // }
 }
