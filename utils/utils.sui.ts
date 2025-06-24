@@ -15,10 +15,11 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
   });
 
 const PROGRAM = {
-  PACKAGE: '0xd7782cea56d54201f70d42722c3de6104885668856aa1dc6868f0d4ce28a146b',
-
-  COLLECTION:
-    '0x84a16ea896b3860b86a00223c6ace53f6c1ad3c7b5f48daf6134a2b4b57dab28',
+  COLLECTION_ID:
+    '0x7bf65b9ddd378e58028ece03845511b63039478fe1b67e511afe5954298cd00e',
+  POOL_ID: '0x1a6e4e8974f81462f14410ca89ad8f1e9426939f62238d897328a92a0cd25415',
+  PACKAGE_ID:
+    '0x66c79e16c393d8b5b3252c2692006136cc4e20ee4b52a54a8ff19a936a0eeca3',
 };
 
 const getSuiClient = new SuiClient({

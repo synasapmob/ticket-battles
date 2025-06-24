@@ -1,5 +1,4 @@
-export type TypePoolMetadata = {
-  participant: string;
-  begin: boolean;
-  next_id: number;
+export type TypePoolEventPool = {
+  participants: string[];
+  winner?: string | null;
 };

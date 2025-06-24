@@ -1,11 +1,7 @@
-import { InfiniteData } from '@tanstack/query-core';
+import { SUI_DECIMALS } from '@mysten/sui/utils';
 import { BigNumber } from 'bignumber.js';
 
-import utilsConstants from './utils.constants';
-import getQueryClient from './utils.queryClient';
-
 import colors from 'theme/colors';
-import { IPFSDataType } from 'types';
 
 /** 
   @function convertHex(color: string, opacity: number)
@@ -106,7 +102,7 @@ export const formatNumber = (
 };
 
 export const formatNumberDecimal = (number: number | string) => {
-  const decimal = 10 ** 8;
+  const decimal = 10 ** SUI_DECIMALS;
 
   return BigNumber(number).dividedBy(decimal).toNumber();
 };
@@ -260,39 +256,6 @@ export const parseMetadata = (
   }
 
   return mergeMetas;
-};
-
-export const getNFTsByIPFS = async () => {
-  const result: IPFSDataType[] = [];
-
-  const lengBase = getQueryClient
-    .getQueryData<InfiniteData<IPFSDataType>>(['create_nft_base'])
-    ?.pages.flatMap(page => page).length;
-
-  for (let i = 0; i < 10; i++) {
-    try {
-      /*
-        should start with number + N to avoid dpulicate
-        E.g:
-          before: 1, 2, 3....
-          after:  4, 5, 6...
-      */
-      const count = (lengBase || 0) + i;
-
-      const request = await fetch(
-        `${utilsConstants.IPFS_GATEWAY}${utilsConstants.IPFS_ENDPOINT}/${count}`
-      );
-
-      const parse: IPFSDataType = await request.json();
-
-      // sabotages maybe make your application error when they're uploaded incorrect
-      if (parse?.image) result.push(parse);
-    } catch (error) {
-      break;
-    }
-  }
-
-  return result;
 };
 
 export const getColorOfRarity = (rarity: number) => {

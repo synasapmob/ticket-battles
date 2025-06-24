@@ -1,7 +1,7 @@
 import { Text, TextProps } from '@chakra-ui/react';
 
 interface CardNFTTokenIDProps {
-  tokenID: string;
+  tokenID: string | number;
   variant?: TextProps;
 }
 export default ({ tokenID, variant }: CardNFTTokenIDProps) => {

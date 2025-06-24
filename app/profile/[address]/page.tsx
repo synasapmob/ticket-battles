@@ -1,11 +1,5 @@
 'use client';
 
-export interface ProfilePageProps {
-  params: {
-    address: string;
-  };
-}
-
 import {
   Container,
   Divider,
@@ -24,6 +18,12 @@ import Back from 'components/Back';
 import ProfileHeader from 'layout/Profile/ProfileHeader';
 import ProfileNFTs from 'layout/Profile/ProfileNFTs';
 import ProfileTickets from 'layout/Profile/ProfileTickets';
+
+export interface ProfilePageProps {
+  params: {
+    address: string;
+  };
+}
 
 interface ListTabProps {
   key: 'My Tickets' | 'My NFTs';

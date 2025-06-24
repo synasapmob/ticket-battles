@@ -1,5 +1,7 @@
-export type TypeTicketMetadata = {
+export type TypeTicketContentField = {
+  amount: string;
+  id: {
+    id: string;
+  };
   owner: string;
-  quantity: number;
-  createdAt: string;
 };

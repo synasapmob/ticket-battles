@@ -10,34 +10,43 @@ import {
   Text,
   theme,
 } from '@chakra-ui/react';
-import { useQuery } from '@tanstack/react-query';
+import { bcs } from '@mysten/bcs';
 import { useState } from 'react';
 
 import Back from 'components/Back';
+import useDevInspect from 'hook/useDevInspect';
+import useQueryEvent from 'hook/useQueryEvent';
 import MintQuantity from 'layout/Mint/MintQuantity';
 import MintSubmit from 'layout/Mint/MintSubmit';
 import MintTime from 'layout/Mint/MintTime';
 import PoolTicket from 'layout/Pool/PoolTicket';
 import SuiIcon from 'public/fill/sui.svg';
-import { formatNumber } from 'utils';
-import utilsConstants from 'utils/utils.constants';
-import utilsSui from 'utils/utils.sui';
+import { TypeTicketContentField } from 'types/types.ticket';
+import { formatNumber, formatNumberDecimal, sumNumber } from 'utils';
 
 export default () => {
   const [quantity, setQuantity] = useState('1');
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['ticket_total'],
-    queryFn: async () => {
-      const { data } = await utilsSui.getSuiClient.queryEvents({
-        query: {
-          MoveEventType: `${utilsSui.PROGRAM.PACKAGE}::ticket::TicketEvent`,
-        },
-      });
-
-      return data.length;
-    },
+  const getTicketEvent = useQueryEvent<TypeTicketContentField>({
+    type: 'ticket::TicketEvent',
   });
+
+  const getDevInspectPriceMint = useDevInspect({
+    type: 'shared::PRICE_MINT_TICKET',
+  });
+
+  const getPriceMint = getDevInspectPriceMint.data?.length
+    ? Number(
+        bcs
+          .u64()
+          .parse(
+            bcs
+              .byteVector()
+              .serialize(getDevInspectPriceMint.data[0][0])
+              .parse()
+          )
+      )
+    : 0;
 
   return (
     <Container
@@ -74,9 +83,11 @@ export default () => {
             lg: '30%',
           }}
         >
-          {isLoading && <Skeleton height={72} />}
+          {(getTicketEvent.isLoading || getDevInspectPriceMint.isLoading) && (
+            <Skeleton height={72} />
+          )}
 
-          {!isLoading && (
+          {!(getTicketEvent.isLoading || getDevInspectPriceMint.isLoading) && (
             <>
               <MintTime />
 
@@ -85,7 +96,7 @@ export default () => {
 
                 <HStack>
                   <Text color="shader.a.100" fontWeight="bold">
-                    {utilsConstants.PRICE_MINT} SUI
+                    {formatNumberDecimal(getPriceMint)} SUI
                   </Text>
 
                   <Icon as={SuiIcon} width={4} height={4} />
@@ -93,16 +104,23 @@ export default () => {
               </Stack>
 
               <Text fontWeight="medium">
-                {formatNumber(data || 0)}
+                {formatNumber(
+                  getTicketEvent.data?.length
+                    ? sumNumber(
+                        getTicketEvent.data.map(meta => Number(meta.amount))
+                      )
+                    : 0
+                )}
                 &nbsp;minted
               </Text>
 
               <MintQuantity quantity={quantity} setQuantity={setQuantity} />
 
               <MintSubmit
+                getPriceMint={getPriceMint}
                 quantity={quantity}
                 setQuantity={setQuantity}
-                refetch={refetch}
+                refetch={getTicketEvent.refetch}
               />
             </>
           )}

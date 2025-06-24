@@ -1,56 +1,86 @@
 'use client';
 
 import { Box, Container, Flex, Skeleton, theme } from '@chakra-ui/react';
+import { bcs } from '@mysten/bcs';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 
 import Back from 'components/Back';
+import useDevInspect from 'hook/useDevInspect';
+import useQueryEvent from 'hook/useQueryEvent';
 import PoolBanner from 'layout/Pool/PoolBanner';
 import PoolJoinBattles from 'layout/Pool/PoolJoinBattles';
 import PoolMOCBattles from 'layout/Pool/PoolMOCBattles';
 import PoolProgress from 'layout/Pool/PoolProgress';
-import { TypePoolMetadata } from 'types/types.pool';
-import utilsSui from 'utils/utils.sui';
+import { TypePoolEventPool } from 'types/types.pool';
+import getQueryClient from 'utils/utils.queryClient';
 
 export default () => {
   const current_account = useCurrentAccount();
 
-  const getPoolsFromEvents = useQuery({
-    queryKey: ['pool_total'],
-    queryFn: async () => {
-      const { data } = await utilsSui.getSuiClient.queryEvents({
-        query: {
-          MoveEventType: `${utilsSui.PROGRAM.PACKAGE}::pool::PoolEvent`,
-        },
-      });
-
-      return data.map(meta => meta.parsedJson) as TypePoolMetadata[];
+  const getPoolsFromEvents = useQueryEvent<TypePoolEventPool>({
+    type: 'pool::PoolEvent',
+    options: {
+      limit: 1,
     },
   });
 
-  const getTicketOwner = useQuery({
-    queryKey: ['ticket_owner', current_account?.address],
-    queryFn: async () => {
-      if (current_account?.address) {
-        const { data } = await utilsSui.getSuiClient.getOwnedObjects({
-          owner: current_account.address,
-          filter: {
-            StructType: `${utilsSui.PROGRAM.PACKAGE}::ticket::Ticket`,
-          },
-        });
-
-        return data.map(meta => String(meta.data?.objectId));
-      }
-    },
+  const getDevInspectEnoughParticipants = useDevInspect({
+    type: 'shared::ENOUGH_PARTICIPANTS_POOL',
   });
 
-  const isJoined = getPoolsFromEvents.data?.some(
-    meta => meta?.participant === current_account?.address
+  const getEnoughParticipants = getDevInspectEnoughParticipants.data?.length
+    ? Number(
+        bcs
+          .u64()
+          .parse(
+            bcs
+              .byteVector()
+              .serialize(getDevInspectEnoughParticipants.data[0][0])
+              .parse()
+          )
+      )
+    : 0;
+
+  const isJoined = useMemo(
+    () =>
+      getPoolsFromEvents.data?.some(meta => {
+        return meta?.participants?.some(
+          participant => participant === current_account?.address
+        );
+      }),
+    [current_account?.address, getPoolsFromEvents.data]
   );
 
-  const isProgress = getPoolsFromEvents.data?.some(meta => meta?.begin);
+  const winner = useMemo(
+    () =>
+      getPoolsFromEvents.data?.find(
+        meta => !!meta?.winner && !!meta.participants.length
+      )?.winner,
+    [getPoolsFromEvents.data]
+  );
 
-  console.log(getPoolsFromEvents.data);
+  // handler realtime fake :))
+  useEffect(() => {
+    const subscribe = setInterval(async () => {
+      const request = await fetch('/api/pool', {
+        method: 'GET',
+      });
+
+      const toJSON: TypePoolEventPool | null = await request.json();
+
+      if (toJSON) {
+        getQueryClient.setQueryData<TypePoolEventPool[]>(
+          ['useQueryEvent', 'pool::PoolEvent'],
+          [toJSON]
+        );
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(subscribe);
+    };
+  }, [getPoolsFromEvents]);
 
   return (
     <Container
@@ -74,20 +104,20 @@ export default () => {
             lg: '40%',
           }}
         >
-          {(getPoolsFromEvents.isLoading || getTicketOwner.isLoading) && (
-            <Skeleton height="lg" />
-          )}
+          {getPoolsFromEvents.isLoading && <Skeleton height="lg" />}
 
-          {!(getPoolsFromEvents.isLoading || getTicketOwner.isLoading) && (
+          {!getPoolsFromEvents.isLoading && (
             <>
               {isJoined && getPoolsFromEvents.data?.length && (
-                <PoolMOCBattles pools={getPoolsFromEvents.data} />
+                <PoolMOCBattles
+                  pools={getPoolsFromEvents.data}
+                  getEnoughParticipants={getEnoughParticipants}
+                />
               )}
 
               {!isJoined && (
                 <PoolJoinBattles
-                  getTicketOwner={getTicketOwner}
-                  onSuccess={getPoolsFromEvents.refetch}
+                  getEnoughParticipants={getEnoughParticipants}
                 />
               )}
             </>
@@ -103,8 +133,9 @@ export default () => {
           <PoolBanner />
 
           <PoolProgress
+            getEnoughParticipants={getEnoughParticipants}
+            winner={winner}
             isJoined={isJoined}
-            isProgress={isProgress}
             onSuccess={getPoolsFromEvents.refetch}
           />
         </Box>

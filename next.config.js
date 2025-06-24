@@ -7,14 +7,6 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.dummyjson.com',
-        pathname: '/product-images/beauty/**',
-      },
-    ],
   },
 
   webpack(config) {
@@ -67,13 +59,13 @@ const nextConfig = {
     return config;
   },
 
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // typescript: {
+  //   ignoreBuildErrors: true,
+  // },
 
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // eslint: {
+  //   ignoreDuringBuilds: true,
+  // },
 };
 
 module.exports = nextConfig;

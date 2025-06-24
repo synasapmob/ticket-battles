@@ -1,7 +1,7 @@
 'use client';
 
 import { AspectRatio, Box, Container, Skeleton, theme } from '@chakra-ui/react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { bcs } from '@mysten/bcs';
 import Image from 'next/image';
 import React from 'react';
 
@@ -12,51 +12,35 @@ import CardNFTLayout from 'components/Card/CardNFT/CardNFTLayout';
 import CardNFTName from 'components/Card/CardNFT/CardNFTName';
 import CardNFTRarity from 'components/Card/CardNFT/CardNFTRarity';
 import CardNFTTokenID from 'components/Card/CardNFT/CardNFTTokenID';
-import useObjserver from 'hook/useObjserver';
+import useDevInspect from 'hook/useDevInspect';
+import useQueryEvent from 'hook/useQueryEvent';
 import ProfileNFTsGrid from 'layout/Profile/ProfileNFTs/ProfileNFTsGrid';
 import { TypeNFTMetadata } from 'types/types.nft';
-import { convertHex, getNFTsByIPFS } from 'utils';
-import utilsConstants from 'utils/utils.constants';
-import utilsSui from 'utils/utils.sui';
+import { convertHex } from 'utils';
 
 export default () => {
-  const getNFTsFromIPFS = useInfiniteQuery({
-    queryKey: [`create_nft_base`],
-    queryFn: async () => {
-      return await getNFTsByIPFS();
-    },
-    getNextPageParam: lastPage => {
-      if (!lastPage?.length) return;
-
-      return lastPage.length;
-    },
-    select(data) {
-      return {
-        pageParams: [],
-        pages: data.pages.flatMap(page => page),
-      };
-    },
-    initialPageParam: 1,
+  const getNFTsFromEvents = useQueryEvent<TypeNFTMetadata>({
+    type: 'nft::NFTEvent',
   });
 
-  const getNFTsFromEvents = useQuery({
-    queryKey: ['nft_total'],
-    queryFn: async () => {
-      const { data } = await utilsSui.getSuiClient.queryEvents({
-        query: {
-          MoveEventType: `${utilsSui.PROGRAM.PACKAGE}::nft::NFTEvent`,
-        },
-      });
-
-      return data.map(meta => meta.parsedJson) as TypeNFTMetadata[];
-    },
+  const getDevInspectMaxToken = useDevInspect({
+    type: 'shared::MAX_TOKEN',
   });
 
-  const { objserverStart } = useObjserver({
-    fetchNextPage: getNFTsFromIPFS.fetchNextPage,
-    hasNextPage:
-      getNFTsFromIPFS.hasNextPage && !getNFTsFromIPFS.isFetchingNextPage,
-  });
+  const getMaxToken = getDevInspectMaxToken.data?.length
+    ? /* 
+        why +1 ?:
+          token representation as index they count from 0 to N (index of arrays)
+          if you map that'll missing 1st, so +1 necessary to render fully
+      */
+      Number(
+        bcs
+          .u64()
+          .parse(
+            bcs.byteVector().serialize(getDevInspectMaxToken.data[0][0]).parse()
+          )
+      ) + 1
+    : 0;
 
   return (
     <Container
@@ -68,7 +52,7 @@ export default () => {
     >
       <Back />
 
-      {(getNFTsFromIPFS.isLoading || getNFTsFromEvents.isLoading) && (
+      {getDevInspectMaxToken.isLoading && (
         <ProfileNFTsGrid>
           {React.Children.toArray(
             [...Array(10)].map(() => <Skeleton width="full" height={60} />)
@@ -76,73 +60,74 @@ export default () => {
         </ProfileNFTsGrid>
       )}
 
-      {!(getNFTsFromIPFS.isLoading || getNFTsFromEvents.isLoading) && (
+      {!getDevInspectMaxToken.isLoading && (
         <>
-          {getNFTsFromIPFS.data?.pages.length ? (
-            <ProfileNFTsGrid>
-              {getNFTsFromIPFS.data.pages.map((meta, index, array) => {
-                const [name, tokenId] = meta.name.split('#');
-
-                const isLocked = !getNFTsFromEvents?.data?.some(
-                  meta => Number(meta.tokenId) === Number(tokenId)
+          <ProfileNFTsGrid>
+            {[...Array(getMaxToken)].map((_, index) => {
+              const { name, tokenId } = (function () {
+                const { name } = require(
+                  `public/metadata/metadata/${index}.json`
                 );
 
-                return (
-                  <CardNFTLayout
-                    key={meta.name}
-                    ref={
-                      index === array.length - 1 ? objserverStart : undefined
-                    }
-                  >
+                // ['name', '#12']
+                const separate = name.split(' ');
+
+                return {
+                  name: separate[0] as string,
+                  tokenId: Number(
+                    separate[separate.length - 1].replace('#', '')
+                  ),
+                };
+              })();
+
+              const isLocked = !getNFTsFromEvents.data?.some(
+                meta => Number(meta?.tokenId) === tokenId
+              );
+
+              return (
+                <CardNFTLayout key={tokenId}>
+                  {isLocked && (
+                    <Box
+                      position="absolute"
+                      inset={0}
+                      zIndex="docked"
+                      bg={convertHex('#000000', 0.45)}
+                    />
+                  )}
+
+                  <Box position="relative">
                     {isLocked && (
                       <Box
-                        position="absolute"
-                        inset={0}
                         zIndex="docked"
-                        bg={convertHex('#000000', 0.45)}
-                      />
+                        position="absolute"
+                        inset="50% auto auto 50%"
+                        transform="translate(-50%, -50%)"
+                      >
+                        <Image
+                          src="icon/padlock.png"
+                          alt="padlock"
+                          width={48}
+                          height={48}
+                        />
+                      </Box>
                     )}
 
-                    <Box position="relative">
-                      {isLocked && (
-                        <Box
-                          zIndex="docked"
-                          position="absolute"
-                          inset="50% auto auto 50%"
-                          transform="translate(-50%, -50%)"
-                        >
-                          <Image
-                            src="icon/padlock.png"
-                            alt="padlock"
-                            width={48}
-                            height={48}
-                          />
-                        </Box>
-                      )}
+                    <AspectRatio ratio={1 / 1}>
+                      <AvatarFallback src={`/metadata/assets/${tokenId}.png`} />
+                    </AspectRatio>
+                  </Box>
 
-                      <AspectRatio ratio={1 / 1}>
-                        <AvatarFallback
-                          alt={meta.image}
-                          src={meta.image.replace(
-                            utilsConstants.IPFS_PREFIX,
-                            utilsConstants.IPFS_GATEWAY
-                          )}
-                        />
-                      </AspectRatio>
-                    </Box>
+                  <CardNFTBottom>
+                    <CardNFTRarity tokenId={tokenId} />
 
-                    <CardNFTBottom>
-                      <CardNFTRarity tokenId={Number(tokenId)} />
+                    <CardNFTTokenID tokenID={tokenId} />
 
-                      <CardNFTTokenID tokenID={tokenId} />
-
-                      <CardNFTName name={name} />
-                    </CardNFTBottom>
-                  </CardNFTLayout>
-                );
-              })}
-            </ProfileNFTsGrid>
-          ) : null}
+                    <CardNFTName name={name} />
+                  </CardNFTBottom>
+                </CardNFTLayout>
+              );
+            })}
+          </ProfileNFTsGrid>
         </>
       )}
     </Container>

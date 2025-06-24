@@ -23,32 +23,51 @@ import { Dispatch, SetStateAction, useState } from 'react';
 
 import Button3D from 'components/Button/Button3D';
 import useBalance from 'hook/useBalance';
+import useOwnedObject from 'hook/useOwnedObject';
 import useToast from 'hook/useToast';
 import PoolTicket from 'layout/Pool/PoolTicket';
 import SuiIcon from 'public/fill/sui.svg';
 import { formatNumberDecimal, waitForSeconds } from 'utils';
-import utilsConstants from 'utils/utils.constants';
 import utilsSui from 'utils/utils.sui';
 
 interface MintSubmitProps {
+  getPriceMint: number;
   quantity: string;
   setQuantity: Dispatch<SetStateAction<string>>;
   refetch: () => void;
 }
 
-export default ({ quantity, setQuantity, refetch }: MintSubmitProps) => {
+export default ({
+  getPriceMint,
+  quantity,
+  setQuantity,
+  refetch,
+}: MintSubmitProps) => {
   const current_account = useCurrentAccount();
   const balance = useBalance(current_account?.address);
   const signTransaction = useSignAndExecuteTransaction();
 
-  const [loading, setLoading] = useState<string>();
-  const toast = useToast();
-
   const { isOpen, onToggle, onClose } = useDisclosure();
 
-  const totalPrice = BigNumber(utilsConstants.PRICE_MINT)
+  const toast = useToast();
+
+  const ticketOwnedObject = useOwnedObject({
+    queryKey: `ticket::Ticket/${current_account?.address}`,
+    input: {
+      owner: current_account?.address as string,
+      filter: {
+        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::Ticket`,
+      },
+      options: {
+        showContent: true,
+      },
+    },
+  });
+
+  const [loading, setLoading] = useState<string>();
+
+  const totalPrice = BigNumber(getPriceMint)
     .multipliedBy(Number(quantity) || 0)
-    .multipliedBy(utilsConstants.DECIMAL)
     .toNumber();
 
   const insufficientBalance = totalPrice > (balance?.data || 0);
@@ -59,7 +78,11 @@ export default ({ quantity, setQuantity, refetch }: MintSubmitProps) => {
         shape="green"
         justifyContent="center"
         isDisabled={!current_account?.address || insufficientBalance}
-        isLoading={loading === 'join_battle' || balance.isLoading}
+        isLoading={
+          loading === 'join_battle' ||
+          balance.isLoading ||
+          ticketOwnedObject.isLoading
+        }
         onClick={onToggle}
       >
         {(function () {
@@ -129,17 +152,36 @@ export default ({ quantity, setQuantity, refetch }: MintSubmitProps) => {
 
                     const tx = new Transaction();
 
+                    const coin = tx.splitCoins(tx.gas, [totalPrice]);
+
                     tx.moveCall({
-                      target: `${utilsSui.PROGRAM.PACKAGE}::ticket::mint`,
-                      arguments: [tx.splitCoins(tx.gas, [totalPrice])],
+                      target: (function () {
+                        if (ticketOwnedObject.data?.length) {
+                          return `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::mint_with_amount`;
+                        }
+
+                        return `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::mint`;
+                      })(),
+                      arguments: (function () {
+                        if (ticketOwnedObject.data?.length) {
+                          return [
+                            tx.object(ticketOwnedObject.data[0].objectId),
+                            coin,
+                          ];
+                        }
+
+                        return [coin];
+                      })(),
                     });
 
                     await signTransaction.mutateAsync({
-                      transaction: tx,
+                      transaction: tx as unknown as string,
                     });
 
                     await waitForSeconds(() => {
                       refetch();
+
+                      ticketOwnedObject.refetch();
                     });
 
                     setQuantity('1');

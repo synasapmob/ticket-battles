@@ -1,89 +1,47 @@
 import fs from 'fs';
+import path from 'path';
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  nft_routes_addFile,
-  nft_routes_random_tokenId,
-  nft_routes_readFile,
-} from '../nft/route';
+import { TypePoolEventPool } from 'types/types.pool';
 
-import { TypePoolMetadata } from 'types/types.pool';
-
-const folder = 'data/pool';
+const PATH_POOL = path.resolve('.next/pool');
+const PATH_CACHE = 'cache.json';
 
 export async function POST(req: NextRequest) {
-  const { owner } = await req.json();
+  const participants: TypePoolEventPool = await req.json();
 
-  // create folders
-  if (!fs.existsSync(folder)) {
-    fs.mkdirSync(folder, {
-      recursive: true,
-    });
-  }
+  if (!fs.existsSync(PATH_POOL)) fs.mkdirSync(PATH_POOL);
 
-  // just append
-  if (fs.existsSync(`${folder}/data.json`)) {
-    const readFile: TypePoolMetadata[] = [
-      ...JSON.parse(fs.readFileSync(`${folder}/data.json`).toString()),
-      {
-        owner,
-      },
-    ];
+  fs.writeFileSync(
+    `${PATH_POOL}/${PATH_CACHE}`,
+    JSON.stringify(participants, null, 2)
+  );
 
-    // check if owner already to play
-    const ENOUGH_CONDITION_PLAY = 1;
-
-    if (readFile.length - 1 >= ENOUGH_CONDITION_PLAY) {
-      const random = Math.floor(Math.random() * ENOUGH_CONDITION_PLAY);
-
-      const who_win = readFile[random].owner;
-      const get_nfts = await nft_routes_readFile();
-      const random_nfts = nft_routes_random_tokenId(
-        get_nfts.map(arg => arg.tokenId)
-      );
-
-      await nft_routes_addFile([
-        ...get_nfts,
-        {
-          owner: who_win,
-          tokenId: random_nfts,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      fs.rmdirSync(folder, {
-        recursive: true,
-      });
-
-      return NextResponse.json({
-        success: true,
-        winner: who_win,
-      });
-    }
-
-    fs.writeFileSync(`${folder}/data.json`, JSON.stringify(readFile, null, 2));
-  } else {
-    // append new files
-    fs.writeFileSync(
-      `${folder}/data.json`,
-      JSON.stringify([{ owner }], null, 2)
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-  });
+  return NextResponse.json(participants);
 }
 
 export async function GET() {
-  if (!fs.existsSync(folder)) {
-    return NextResponse.json([]);
+  if (fs.existsSync(`${PATH_POOL}/${PATH_CACHE}`)) {
+    const participants = fs
+      .readFileSync(`${PATH_POOL}/${PATH_CACHE}`)
+      .toString();
+
+    return NextResponse.json(JSON.parse(participants));
   }
 
-  const readFile: TypePoolMetadata[] = JSON.parse(
-    fs.readFileSync(`${folder}/data.json`).toString()
+  return NextResponse.json(null);
+}
+
+export async function DELETE() {
+  fs.rm(
+    PATH_POOL,
+    {
+      recursive: true,
+      force: true,
+    },
+    () => {}
   );
 
-  return NextResponse.json(readFile);
+  return NextResponse.json(true);
 }

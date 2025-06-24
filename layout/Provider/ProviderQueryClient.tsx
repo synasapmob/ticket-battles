@@ -58,7 +58,7 @@ export default ({ children }: PropsWithChildren) => {
     <QueryClientProvider client={queryClient}>
       {children}
 
-      {/* <ReactQueryDevtools initialIsOpen={false} /> */}
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 };

@@ -5,20 +5,38 @@ import { useEffect, useState } from 'react';
 import PoolModal from '../PoolModal';
 
 import LoadingGIF from 'public/loading/loading.gif';
+import { TypePoolEventPool } from 'types/types.pool';
+import getQueryClient from 'utils/utils.queryClient';
 
 interface PoolProgressProps {
+  getEnoughParticipants: number;
+  winner: TypePoolEventPool['winner'];
   isJoined: boolean | undefined;
-  isProgress: boolean | undefined;
   onSuccess: () => void;
 }
 
-export default ({ isJoined, isProgress, onSuccess }: PoolProgressProps) => {
+export default ({
+  getEnoughParticipants,
+  winner,
+  isJoined,
+  onSuccess,
+}: PoolProgressProps) => {
   const [counter, setCounter] = useState(5);
 
   useEffect(() => {
-    if (isProgress) {
-      const subscribe = setInterval(() => {
+    if (winner?.length) {
+      const subscribe: NodeJS.Timeout = setInterval(() => {
         if (!counter) {
+          // reset cache
+          fetch('/api/pool', {
+            method: 'DELETE',
+          });
+
+          // refetch for winner
+          getQueryClient.refetchQueries({
+            queryKey: ['useOwnedObject', `nft::NFT/${winner}`],
+          });
+
           return clearInterval(subscribe);
         }
 
@@ -29,7 +47,7 @@ export default ({ isJoined, isProgress, onSuccess }: PoolProgressProps) => {
         clearInterval(subscribe);
       };
     }
-  }, [counter, isProgress]);
+  }, [counter, winner]);
 
   return (
     <>
@@ -46,15 +64,16 @@ export default ({ isJoined, isProgress, onSuccess }: PoolProgressProps) => {
           </AspectRatio>
 
           <Text color="white" fontWeight="semibold" fontSize="2xl">
-            {isProgress
+            {winner?.length
               ? `The battle will begin in ${counter} seconds.`
-              : 'Still waiting for 10 users to join.'}
+              : `Still waiting for ${getEnoughParticipants} users to join.`}
           </Text>
         </Center>
       )}
 
-      {!counter ? (
+      {!counter && winner?.length ? (
         <PoolModal
+          winner={winner}
           onClose={() => {
             setCounter(5);
             onSuccess();

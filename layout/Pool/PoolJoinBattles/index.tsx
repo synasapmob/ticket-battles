@@ -4,33 +4,55 @@ import {
   useSignAndExecuteTransaction,
 } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
-import { UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import Attention from 'components/Attention';
 import Button3D from 'components/Button/Button3D';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
+import useOwnedObject from 'hook/useOwnedObject';
 import PoolTicket from 'layout/Pool/PoolTicket';
+import { TypeOwnedObjectSuiParsedData } from 'types';
+import { TypePoolEventPool } from 'types/types.pool';
+import { TypeTicketContentField } from 'types/types.ticket';
 import { formatNumber, waitForSeconds } from 'utils';
+import getQueryClient from 'utils/utils.queryClient';
 import utilsSui from 'utils/utils.sui';
 
 interface PoolJoinBattlesProps {
-  getTicketOwner: UseQueryResult<string[] | undefined, Error>;
-  onSuccess: () => void;
+  getEnoughParticipants: number;
 }
 
-export default ({ getTicketOwner, onSuccess }: PoolJoinBattlesProps) => {
+export default ({ getEnoughParticipants }: PoolJoinBattlesProps) => {
   const signTransaction = useSignAndExecuteTransaction();
   const current_account = useCurrentAccount();
 
   const [loading, setLoading] = useState<string>();
 
+  const ticketOwnedObject = useOwnedObject<
+    TypeOwnedObjectSuiParsedData<TypeTicketContentField>
+  >({
+    queryKey: `ticket::Ticket/${current_account?.address}`,
+    input: {
+      owner: current_account?.address as string,
+      filter: {
+        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::Ticket`,
+      },
+      options: {
+        showContent: true,
+      },
+    },
+  });
+
+  const ticketTotalAmount = Number(
+    ticketOwnedObject.data?.[0]?.content?.fields?.amount || 0
+  );
+
   return (
     <>
-      {getTicketOwner.isLoading && <Skeleton height="lg" />}
+      {ticketOwnedObject.isLoading && <Skeleton height="lg" />}
 
-      {!getTicketOwner.isLoading && (
+      {!ticketOwnedObject.isLoading && (
         <Stack
           spacing={8}
           padding={4}
@@ -40,11 +62,11 @@ export default ({ getTicketOwner, onSuccess }: PoolJoinBattlesProps) => {
           position="relative"
         >
           <Stack>
-            <MyTicket amount={formatNumber(getTicketOwner.data?.length || 0)} />
+            <MyTicket amount={formatNumber(ticketTotalAmount)} />
 
             <Attention>
               Use 1 ticket to enter the pool. The battle will automatically
-              start once 10 tickets are collected.
+              start once {getEnoughParticipants} tickets are collected.
             </Attention>
           </Stack>
 
@@ -65,17 +87,17 @@ export default ({ getTicketOwner, onSuccess }: PoolJoinBattlesProps) => {
               shape="purple"
               justifyContent="center"
               px={6}
-              isDisabled={
-                !current_account?.address || !getTicketOwner.data?.length
+              isDisabled={!current_account?.address || !ticketTotalAmount}
+              isLoading={
+                loading === 'join_battle' || ticketOwnedObject.isLoading
               }
-              isLoading={loading === 'join_battle' || getTicketOwner.isLoading}
               onClick={async () => {
                 try {
                   setLoading('join_battle');
 
                   if (
                     !current_account?.address ||
-                    !getTicketOwner.data?.length
+                    !ticketOwnedObject.data?.length
                   ) {
                     throw 'not found';
                   }
@@ -83,25 +105,59 @@ export default ({ getTicketOwner, onSuccess }: PoolJoinBattlesProps) => {
                   const tx = new Transaction();
 
                   tx.moveCall({
-                    target: `${utilsSui.PROGRAM.PACKAGE}::pool::join`,
+                    target: `${utilsSui.PROGRAM.PACKAGE_ID}::pool::join`,
                     arguments: [
-                      tx.object(utilsSui.PROGRAM.POOL),
-                      tx.object(utilsSui.PROGRAM.COLLECTION),
-                      tx.object(getTicketOwner.data[0]),
-                      //                       _pool: &mut Pool,
-                      // _collection: &mut nft::Collection,
-                      // _ticket: Ticket,
+                      tx.object(utilsSui.PROGRAM.POOL_ID),
+                      tx.object(utilsSui.PROGRAM.COLLECTION_ID),
+                      tx.object(ticketOwnedObject.data[0].objectId),
+                      tx.object.random(),
                     ],
                   });
 
-                  await signTransaction.mutateAsync({
-                    transaction: tx,
+                  const { digest } = await signTransaction.mutateAsync({
+                    transaction: tx as unknown as string,
                   });
 
-                  await waitForSeconds(() => {
-                    onSuccess();
-                    getTicketOwner.refetch();
-                  });
+                  const result = await utilsSui.getSuiClient.waitForTransaction(
+                    {
+                      digest: digest,
+                      options: {
+                        showEvents: true,
+                      },
+                    }
+                  );
+
+                  const event = result.events?.[0]
+                    .parsedJson as TypePoolEventPool;
+
+                  // refetch
+                  {
+                    await getQueryClient.setQueryData(
+                      ['useQueryEvent', 'pool::PoolEvent'],
+                      ([argument]: [TypePoolEventPool]): [
+                        TypePoolEventPool,
+                      ] => {
+                        const instance = {
+                          participants: [
+                            current_account.address,
+                            ...(argument?.participants || []),
+                          ],
+                          winner: event?.winner,
+                        };
+
+                        fetch('/api/pool', {
+                          method: 'POST',
+                          body: JSON.stringify(instance),
+                        });
+
+                        return [instance];
+                      }
+                    );
+
+                    await waitForSeconds(() => {
+                      ticketOwnedObject.refetch();
+                    });
+                  }
                 } finally {
                   setLoading(undefined);
                 }

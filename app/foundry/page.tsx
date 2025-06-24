@@ -2,39 +2,45 @@
 
 import { Box, Container, Flex, Skeleton, Stack, theme } from '@chakra-ui/react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import Attention from 'components/Attention';
 import Back from 'components/Back';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
+import useOwnedObject from 'hook/useOwnedObject';
 import FoundryBanner from 'layout/Foundry/FoundryBanner';
 import FoundrySwapChest from 'layout/Foundry/FoundrySwap/FoundrySwapChest';
 import FoundrySwapIcon from 'layout/Foundry/FoundrySwap/FoundrySwapIcon';
 import FoundrySwapSubmit from 'layout/Foundry/FoundrySwap/FoundrySwapSubmit';
 import FoundrySwapTicket from 'layout/Foundry/FoundrySwap/FoundrySwapTicket';
+import { TypeOwnedObjectSuiParsedData } from 'types';
+import { TypeTicketContentField } from 'types/types.ticket';
 import { formatNumber } from 'utils';
+import getQueryClient from 'utils/utils.queryClient';
 import utilsSui from 'utils/utils.sui';
 
 export default () => {
   const current_account = useCurrentAccount();
 
-  const getTicketOwner = useQuery({
-    queryKey: ['ticket_owner', current_account?.address],
-    queryFn: async () => {
-      if (current_account?.address) {
-        const { data } = await utilsSui.getSuiClient.getOwnedObjects({
-          owner: current_account.address,
-          filter: {
-            StructType: `${utilsSui.PROGRAM.PACKAGE}::ticket::Ticket`,
-          },
-        });
-
-        return data.map(meta => String(meta.data?.objectId));
-      }
+  const ticketOwnedObject = useOwnedObject<
+    TypeOwnedObjectSuiParsedData<TypeTicketContentField>
+  >({
+    queryKey: `ticket::Ticket/${current_account?.address}`,
+    input: {
+      owner: current_account?.address as string,
+      filter: {
+        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::Ticket`,
+      },
+      options: {
+        showContent: true,
+      },
     },
   });
+
+  const ticketTotalAmount = Number(
+    ticketOwnedObject.data?.[0]?.content?.fields?.amount || 0
+  );
 
   const [quantity, setQuantity] = useState<string>();
 
@@ -60,9 +66,9 @@ export default () => {
             lg: '40%',
           }}
         >
-          {getTicketOwner.isLoading && <Skeleton height="lg" />}
+          {ticketOwnedObject.isLoading && <Skeleton height="lg" />}
 
-          {!getTicketOwner.isLoading && (
+          {!ticketOwnedObject.isLoading && (
             <Stack
               spacing={8}
               padding={4}
@@ -73,13 +79,7 @@ export default () => {
             >
               <Stack>
                 {current_account?.address ? (
-                  <MyTicket
-                    amount={
-                      getTicketOwner.data
-                        ? formatNumber(getTicketOwner.data.length)
-                        : 0
-                    }
-                  />
+                  <MyTicket amount={formatNumber(ticketTotalAmount)} />
                 ) : null}
 
                 <Attention>
@@ -92,7 +92,7 @@ export default () => {
                 <FoundrySwapIcon />
 
                 <FoundrySwapChest
-                  amount={getTicketOwner.data ? getTicketOwner.data.length : 0}
+                  amount={ticketTotalAmount}
                   quantity={quantity}
                   setQuantity={setQuantity}
                 />
@@ -101,9 +101,19 @@ export default () => {
               </Stack>
 
               <FoundrySwapSubmit
-                getTicketOwner={getTicketOwner}
+                ticketOwnedObject={ticketOwnedObject.data?.[0]?.objectId}
                 quantity={quantity}
                 setQuantity={setQuantity}
+                refetch={() => {
+                  ticketOwnedObject.refetch();
+
+                  getQueryClient.refetchQueries({
+                    queryKey: [
+                      'useOwnedObject',
+                      `nft::NFT/${current_account?.address}`,
+                    ],
+                  });
+                }}
               />
 
               <Radial

@@ -8,14 +8,15 @@ import IdentifyLinearBody from 'components/IdentifyLinear/IdentifyLinearBody';
 import IdentifyLinearOverlay from 'components/IdentifyLinear/IdentifyLinearOverlay';
 import IdentifyLinearYield from 'components/IdentifyLinear/IdentifyLinearYield';
 import PlayerFill from 'public/fill/player.svg';
-import { TypePoolMetadata } from 'types/types.pool';
+import { TypePoolEventPool } from 'types/types.pool';
 import { shorten } from 'utils';
 
 interface PoolMOCBattlesProps {
-  pools: TypePoolMetadata[];
+  getEnoughParticipants: number;
+  pools: TypePoolEventPool[];
 }
 
-export default ({ pools }: PoolMOCBattlesProps) => {
+export default ({ getEnoughParticipants, pools }: PoolMOCBattlesProps) => {
   const current_account = useCurrentAccount();
 
   return (
@@ -35,7 +36,7 @@ export default ({ pools }: PoolMOCBattlesProps) => {
           justifyContent="space-between"
         >
           <Text color="white" fontSize="lg" fontWeight="medium">
-            Mooners
+            Total Player
           </Text>
 
           <HStack spacing={1.5} color="accents.green">
@@ -46,17 +47,18 @@ export default ({ pools }: PoolMOCBattlesProps) => {
         </Center>
 
         <Attention>
-          Please wait until there are 10 users. The pool will start after that.
+          Please wait until there are {getEnoughParticipants} users. The pool
+          will start after that.
         </Attention>
       </Stack>
 
       <Stack>
-        {pools.map(meta => {
-          const isYou = meta.participant === current_account?.address;
+        {pools[0].participants.map(participant => {
+          const isYou = participant === current_account?.address;
 
           return (
             <Center
-              key={meta.participant}
+              key={participant}
               justifyContent="space-between"
               height="4.25rem"
               overflow="hidden"
@@ -93,7 +95,7 @@ export default ({ pools }: PoolMOCBattlesProps) => {
                     return 'white';
                   })()}
                 >
-                  {isYou ? 'You' : shorten(meta.participant)}
+                  {isYou ? 'You' : shorten(participant)}
                 </IdentifyLinearYield>
 
                 <HStack spacing={1.5}>

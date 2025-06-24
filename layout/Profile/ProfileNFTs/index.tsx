@@ -1,5 +1,4 @@
 import { AspectRatio, Box, Skeleton } from '@chakra-ui/react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import ProfileNFTsGrid from './ProfileNFTsGrid';
@@ -11,55 +10,30 @@ import CardNFTBottom from 'components/Card/CardNFT/CardNFTBottom';
 import CardNFTLayout from 'components/Card/CardNFT/CardNFTLayout';
 import CardNFTName from 'components/Card/CardNFT/CardNFTName';
 import CardNFTTokenID from 'components/Card/CardNFT/CardNFTTokenID';
+import useOwnedObject from 'hook/useOwnedObject';
+import { TypeOwnedObjectSuiParsedData } from 'types';
 import { TypeNFTMetadata } from 'types/types.nft';
-import { getNFTsByIPFS } from 'utils';
-import utilsConstants from 'utils/utils.constants';
 import utilsSui from 'utils/utils.sui';
 
 export default ({ params }: ProfilePageProps) => {
-  const getNFTsFromIPFS = useInfiniteQuery({
-    queryKey: [`create_nft_base`],
-    queryFn: async () => {
-      return await getNFTsByIPFS();
-    },
-    getNextPageParam: lastPage => {
-      if (!lastPage?.length) return;
-
-      return lastPage.length;
-    },
-    select(data) {
-      return {
-        pageParams: [],
-        pages: data.pages.flatMap(page => page),
-      };
-    },
-    initialPageParam: 1,
-  });
-
-  const getNFTsFromObject = useQuery({
-    queryKey: ['nft_owner', params.address],
-    queryFn: async () => {
-      const { data } = await utilsSui.getSuiClient.getOwnedObjects({
-        owner: params.address,
-        filter: {
-          StructType: `${utilsSui.PROGRAM.PACKAGE}::nft::NFT`,
-        },
-        options: {
-          showContent: true,
-        },
-      });
-
-      return data.map(meta => {
-        if (meta.data?.content?.dataType === 'moveObject') {
-          return meta.data.content.fields;
-        }
-      }) as TypeNFTMetadata[];
+  const ticketOwnedObject = useOwnedObject<
+    TypeOwnedObjectSuiParsedData<TypeNFTMetadata>
+  >({
+    queryKey: `nft::NFT/${params.address}`,
+    input: {
+      owner: params.address,
+      filter: {
+        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::nft::NFT`,
+      },
+      options: {
+        showContent: true,
+      },
     },
   });
 
   return (
     <>
-      {(getNFTsFromObject.isLoading || getNFTsFromIPFS.isLoading) && (
+      {ticketOwnedObject.isLoading && (
         <ProfileNFTsGrid>
           {React.Children.toArray(
             [...Array(10)].map(() => <Skeleton width="full" height={60} />)
@@ -67,34 +41,36 @@ export default ({ params }: ProfilePageProps) => {
         </ProfileNFTsGrid>
       )}
 
-      {!(getNFTsFromObject.isLoading || getNFTsFromIPFS.isLoading) && (
+      {!ticketOwnedObject.isLoading && (
         <>
-          {getNFTsFromObject.data?.length ? (
+          {ticketOwnedObject.data?.length ? (
             <ProfileNFTsGrid>
-              {getNFTsFromObject.data.map(meta => {
-                const getMetadata = getNFTsFromIPFS.data?.pages.find(ipfs => {
-                  const [, tokenId] = ipfs.name.split('#');
+              {ticketOwnedObject.data.map(meta => {
+                const name = (function () {
+                  const { name } = require(
+                    `public/metadata/metadata/${meta.content.fields.tokenId}.json`
+                  );
 
-                  return Number(meta.tokenId) === Number(tokenId);
-                });
+                  // ['name', '#12']
+                  const separate = name.split(' ');
+
+                  return separate[0];
+                })();
 
                 return (
-                  <CardNFTLayout key={meta.tokenId}>
+                  <CardNFTLayout key={meta.content.fields.tokenId}>
                     <Box position="relative">
                       <AspectRatio ratio={1 / 1} pointerEvents="none">
                         <AvatarFallback
-                          src={getMetadata?.image?.replace(
-                            utilsConstants.IPFS_PREFIX,
-                            utilsConstants.IPFS_GATEWAY
-                          )}
+                          src={`/metadata/assets/${meta.content.fields.tokenId}.png`}
                         />
                       </AspectRatio>
                     </Box>
 
                     <CardNFTBottom>
-                      <CardNFTTokenID tokenID={meta.tokenId} />
+                      <CardNFTTokenID tokenID={meta.content.fields.tokenId} />
 
-                      <CardNFTName name={getMetadata?.name || '-'} />
+                      <CardNFTName name={name} />
                     </CardNFTBottom>
                   </CardNFTLayout>
                 );
@@ -102,8 +78,8 @@ export default ({ params }: ProfilePageProps) => {
             </ProfileNFTsGrid>
           ) : (
             <ButtonTryAgain
-              isFetching={getNFTsFromObject.isFetching}
-              refetch={getNFTsFromObject.refetch}
+              isFetching={ticketOwnedObject.isFetching}
+              refetch={ticketOwnedObject.refetch}
             />
           )}
         </>

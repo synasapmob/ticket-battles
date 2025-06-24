@@ -13,10 +13,11 @@ import Button3D from 'components/Button/Button3D';
 import Radial from 'components/Radial';
 
 interface PoolModalProps {
+  winner: string;
   onClose: () => void;
 }
 
-export default ({ onClose }: PoolModalProps) => {
+export default ({ winner, onClose }: PoolModalProps) => {
   return (
     <Modal variant="blur" isOpen={true} onClose={onClose}>
       <ModalOverlay />
@@ -37,7 +38,7 @@ export default ({ onClose }: PoolModalProps) => {
           />
 
           <Stack spacing={4} textAlign="center" alignItems="center">
-            <PoolModalHeader isProgress={''} />
+            <PoolModalHeader winner={winner} />
 
             <HStack justifyContent="center">
               <Button3D shape="green" px={6} onClick={onClose}>

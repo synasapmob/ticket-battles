@@ -6,11 +6,12 @@ import {
   Stack,
   Text,
 } from '@chakra-ui/react';
+import { bcs } from '@mysten/bcs';
 import Image from 'next/image';
 
 import ButtonMax from 'components/Button/ButtonMax';
+import useDevInspect from 'hook/useDevInspect';
 import MysteryWEBP from 'public/icon/mystery.webp';
-import utilsConstants from 'utils/utils.constants';
 
 interface FoundrySwapChestProps {
   amount: number;
@@ -19,7 +20,24 @@ interface FoundrySwapChestProps {
 }
 
 export default ({ amount, quantity, setQuantity }: FoundrySwapChestProps) => {
-  const getMax = Math.trunc(amount / utilsConstants.SWAP_TICKET);
+  const getDevInspectPriceSwapTicket = useDevInspect({
+    type: 'shared::PRICE_SWAP_TICKET_TO_GET_NFT',
+  });
+
+  const getPriceSwapTicket = getDevInspectPriceSwapTicket.data?.length
+    ? Number(
+        bcs
+          .u64()
+          .parse(
+            bcs
+              .byteVector()
+              .serialize(getDevInspectPriceSwapTicket.data[0][0])
+              .parse()
+          )
+      )
+    : 0;
+
+  const getMax = Math.trunc(amount / getPriceSwapTicket);
 
   return (
     <Stack spacing={4} padding={4} borderRadius="xl" bg="shader.a.500">
@@ -30,6 +48,7 @@ export default ({ amount, quantity, setQuantity }: FoundrySwapChestProps) => {
 
         <ButtonMax
           isDisabled={!getMax}
+          isLoading={getDevInspectPriceSwapTicket.isLoading}
           onClick={() => {
             if (getMax) {
               setQuantity(String(getMax));

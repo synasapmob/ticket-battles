@@ -3,23 +3,25 @@ import {
   useSignAndExecuteTransaction,
 } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
-import { UseQueryResult } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import Button3D from 'components/Button/Button3D';
 import useToast from 'hook/useToast';
 import { waitForSeconds } from 'utils';
 import utilsSui from 'utils/utils.sui';
+
 interface FoundrySwapSubmitProps {
-  getTicketOwner: UseQueryResult<string[] | undefined, Error>;
+  ticketOwnedObject: string | undefined;
   quantity: string | undefined;
   setQuantity: React.Dispatch<React.SetStateAction<string | undefined>>;
+  refetch: () => void;
 }
 
 export default ({
-  getTicketOwner,
+  ticketOwnedObject,
   quantity,
   setQuantity,
+  refetch,
 }: FoundrySwapSubmitProps) => {
   const signTransaction = useSignAndExecuteTransaction();
   const current_account = useCurrentAccount();
@@ -36,31 +38,33 @@ export default ({
         margin="auto"
         px={12}
         isDisabled={!quantity?.length || !current_account?.address}
-        isLoading={loading === 'swap_now' || getTicketOwner.isLoading}
+        isLoading={loading === 'swap_now' || !ticketOwnedObject?.length}
         onClick={async () => {
           try {
             setLoading('swap_now');
 
-            if (!current_account?.address || !getTicketOwner.data?.length) {
+            if (!current_account?.address || !ticketOwnedObject?.length) {
               throw 'not found';
             }
 
             const tx = new Transaction();
 
             tx.moveCall({
-              target: `${utilsSui.PROGRAM.PACKAGE}::nft::mint`,
+              target: `${utilsSui.PROGRAM.PACKAGE_ID}::nft::mint_with_swap`,
               arguments: [
-                tx.object(utilsSui.PROGRAM.COLLECTION),
-                tx.object(getTicketOwner.data[0]),
+                tx.object(utilsSui.PROGRAM.COLLECTION_ID),
+                tx.object(ticketOwnedObject),
+                tx.object.random(),
+                tx.pure.u64(Number(quantity)),
               ],
             });
 
             await signTransaction.mutateAsync({
-              transaction: tx,
+              transaction: tx as unknown as string,
             });
 
             await waitForSeconds(() => {
-              getTicketOwner.refetch();
+              refetch();
             });
 
             toast({

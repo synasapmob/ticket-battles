@@ -2,7 +2,11 @@ import { Box, Text } from '@chakra-ui/react';
 
 import { shorten } from 'utils';
 
-export default ({ isProgress }: { isProgress: string }) => {
+interface PoolModalHeaderProps {
+  winner: string;
+}
+
+export default ({ winner }: PoolModalHeaderProps) => {
   return (
     <>
       {/* <Image
@@ -22,8 +26,8 @@ export default ({ isProgress }: { isProgress: string }) => {
         </Text>
 
         <Text color="shader.a.200">
-          Congratulations! You’ve successfully received an NFT.{' '}
-          <Text as="span">{shorten(isProgress)}</Text>
+          Congratulations! You’ve successfully received an NFT.&nbsp;
+          <Text as="span">{shorten(winner)}</Text>
         </Text>
       </Box>
     </>
