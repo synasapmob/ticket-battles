@@ -25,3 +25,4 @@ tsconfig.tsbuildinfo
 # # local env files
 /.env
 .vercel
+.env*.local

@@ -1,31 +1,22 @@
 import fs from 'fs';
-import path from 'path';
 
 import { NextRequest, NextResponse } from 'next/server';
 
 import { TypePoolEventPool } from 'types/types.pool';
 
-const PATH_POOL = path.resolve('.next/pool');
-const PATH_CACHE = 'cache.json';
+const STORAGE_POOL_PATH = '/tmp/pool_cache.json';
 
 export async function POST(req: NextRequest) {
   const participants: TypePoolEventPool = await req.json();
 
-  if (!fs.existsSync(PATH_POOL)) fs.mkdirSync(PATH_POOL);
-
-  fs.writeFileSync(
-    `${PATH_POOL}/${PATH_CACHE}`,
-    JSON.stringify(participants, null, 2)
-  );
+  fs.writeFileSync(STORAGE_POOL_PATH, JSON.stringify(participants, null, 2));
 
   return NextResponse.json(participants);
 }
 
 export async function GET() {
-  if (fs.existsSync(`${PATH_POOL}/${PATH_CACHE}`)) {
-    const participants = fs
-      .readFileSync(`${PATH_POOL}/${PATH_CACHE}`)
-      .toString();
+  if (fs.existsSync(STORAGE_POOL_PATH)) {
+    const participants = fs.readFileSync(STORAGE_POOL_PATH).toString();
 
     return NextResponse.json(JSON.parse(participants));
   }
@@ -34,14 +25,11 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  fs.rm(
-    PATH_POOL,
-    {
-      recursive: true,
-      force: true,
-    },
-    () => {}
-  );
+  if (fs.existsSync(STORAGE_POOL_PATH)) {
+    fs.rmdirSync(STORAGE_POOL_PATH);
 
-  return NextResponse.json(true);
+    return NextResponse.json(true);
+  }
+
+  return NextResponse.json(false);
 }

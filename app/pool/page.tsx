@@ -75,7 +75,7 @@ export default () => {
           [toJSON]
         );
       }
-    }, 3000);
+    }, 5000);
 
     return () => {
       clearInterval(subscribe);
