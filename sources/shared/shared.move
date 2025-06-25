@@ -1,24 +1,21 @@
 module shared_module::shared {
-
   public fun MAX_TOKEN(): u64 {
     // between 0-24
     return 24
   }
 
   public fun PRICE_SWAP_TICKET_TO_GET_NFT(): u64 {
-    // between 0-24
-    return 2
+    return 4
   }
 
   public fun ENOUGH_PARTICIPANTS_POOL(): u64 {
-    return 3
+    return 4
   }
 
   public fun PRICE_MINT_TICKET(): u64 {
     // transfer:  1 SUI = 10^9 MIST
     // calc:      (10 ** 9) * 0.045
 
-    // return 45000000
     return 450000
   }
 

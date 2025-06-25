@@ -82,25 +82,24 @@ module ticket_module::ticket {
         arg.amount = arg.amount - amount;
     }
 
-    #[test_only]
-    public fun test_mock_ticket(amount: u64): Ticket {
+    #[test]
+    public fun test_mock_ticket(): Ticket {
         let mut ctx = tx_context::dummy();
 
         let ticket = Ticket {
             id: object::new(&mut ctx),
             owner: ctx.sender(),
-            amount,
+            amount: 1,
         };
 
         return ticket
     }
 
     #[test]
-    fun test_mint() {
-        let mut ctx = tx_context::dummy();
-
+    public fun test_mint() {
         //  mint with multiple
         {
+            let mut ctx = tx_context::dummy();
             let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET() * 3, &mut ctx);
 
             mint(coin, &mut ctx);
@@ -108,6 +107,7 @@ module ticket_module::ticket {
 
         // mint with single
         {
+            let mut ctx = tx_context::dummy();
             let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET(), &mut ctx);
 
             mint(coin, &mut ctx);
@@ -116,23 +116,28 @@ module ticket_module::ticket {
 
     #[test]
     fun test_mint_with_amount(){
-        let mut ctx = tx_context::dummy();
-        let mut ticket = test_mock_ticket(1);
 
         // mint with multiple
         {
+            let mut ctx = tx_context::dummy();
+            let mut ticket = test_mock_ticket();
             let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET() * 3, &mut ctx);
 
             mint_with_amount(&mut ticket, coin, &mut ctx);
+
+            transfer::public_transfer(ticket, ctx.sender());
         };
 
         // mint with single
         {
+            let mut ctx = tx_context::dummy();
+            let mut ticket = test_mock_ticket();
             let coin: Coin<SUI> = coin::mint_for_testing(shared::PRICE_MINT_TICKET(), &mut ctx);
 
             mint_with_amount(&mut ticket, coin, &mut ctx);
+
+            transfer::public_transfer(ticket, ctx.sender());
         };
 
-        transfer::public_transfer(ticket, ctx.sender());
     }
 }
