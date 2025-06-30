@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Container, Flex, Skeleton, Stack, theme } from '@chakra-ui/react';
+import { bcs } from '@mysten/bcs';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useState } from 'react';
 
@@ -8,6 +9,7 @@ import Attention from 'components/Attention';
 import Back from 'components/Back';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
+import useDevInspect from 'hook/useDevInspect';
 import useOwnedObject from 'hook/useOwnedObject';
 import FoundryBanner from 'layout/Foundry/FoundryBanner';
 import FoundrySwapChest from 'layout/Foundry/FoundrySwap/FoundrySwapChest';
@@ -37,6 +39,23 @@ export default () => {
       },
     },
   });
+
+  const getDevInspectPriceSwapTicket = useDevInspect({
+    type: 'shared::PRICE_SWAP_TICKET_TO_GET_NFT',
+  });
+
+  const getPriceSwapTicket = getDevInspectPriceSwapTicket.data?.length
+    ? Number(
+        bcs
+          .u64()
+          .parse(
+            bcs
+              .byteVector()
+              .serialize(getDevInspectPriceSwapTicket.data[0][0])
+              .parse()
+          )
+      )
+    : 0;
 
   const ticketTotalAmount = Number(
     ticketOwnedObject.data?.[0]?.content?.fields?.amount || 0
@@ -83,8 +102,8 @@ export default () => {
                 ) : null}
 
                 <Attention>
-                  spend 10 tickets to forge 1 random NFT. The rarity is
-                  unpredictable, test your luck!
+                  spend {getPriceSwapTicket} tickets to forge 1 random NFT. The
+                  rarity is unpredictable, test your luck!
                 </Attention>
               </Stack>
 
