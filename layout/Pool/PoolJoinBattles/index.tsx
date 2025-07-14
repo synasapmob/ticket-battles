@@ -1,21 +1,18 @@
 import { Skeleton, Stack, Text } from '@chakra-ui/react';
-import {
-  useCurrentAccount,
-  useSignAndExecuteTransaction,
-} from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import Attention from 'components/Attention';
 import Button3D from 'components/Button/Button3D';
+import { useAccountContext } from 'components/Context/ContextAccount';
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
-import useOwnedObject from 'hook/useOwnedObject';
 import PoolTicket from 'layout/Pool/PoolTicket';
-import { TypeOwnedObjectSuiParsedData } from 'types';
+import { TypeOwnedObjectSuiParsedData, TypeWalletEnum } from 'types';
 import { TypePoolEventPool } from 'types/types.pool';
 import { TypeTicketContentField } from 'types/types.ticket';
-import { formatNumber, waitForSeconds } from 'utils';
+import { catchProperties, formatNumber, waitForSeconds } from 'utils';
 import getQueryClient from 'utils/utils.queryClient';
 import utilsSui from 'utils/utils.sui';
 
@@ -24,35 +21,36 @@ interface PoolJoinBattlesProps {
 }
 
 export default ({ getEnoughParticipants }: PoolJoinBattlesProps) => {
-  const signTransaction = useSignAndExecuteTransaction();
-  const current_account = useCurrentAccount();
+  const { extension } = useExtensionContext();
+  const { account } = useAccountContext();
 
   const [loading, setLoading] = useState<string>();
 
-  const ticketOwnedObject = useOwnedObject<
-    TypeOwnedObjectSuiParsedData<TypeTicketContentField>
-  >({
-    queryKey: `ticket::Ticket/${current_account?.address}`,
-    input: {
-      owner: current_account?.address as string,
-      filter: {
-        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::Ticket`,
-      },
-      options: {
-        showContent: true,
-      },
+  const getMyTickets = useQuery({
+    queryKey: ['my_tickets', extension, account],
+    queryFn: async () => {
+      if (account && extension === TypeWalletEnum.Slush) {
+        return await utilsSui.getOwnedObject<
+          TypeOwnedObjectSuiParsedData<TypeTicketContentField>
+        >({
+          type: 'ticket::Ticket',
+          options: {
+            owner: account,
+          },
+        });
+      }
     },
   });
 
   const ticketTotalAmount = Number(
-    ticketOwnedObject.data?.[0]?.content?.fields?.amount || 0
+    getMyTickets.data?.[0]?.content?.fields?.amount || 0
   );
 
   return (
     <>
-      {ticketOwnedObject.isLoading && <Skeleton height="lg" />}
+      {getMyTickets.isLoading && <Skeleton height="lg" />}
 
-      {!ticketOwnedObject.isLoading && (
+      {!getMyTickets.isLoading && (
         <Stack
           spacing={8}
           padding={4}
@@ -87,48 +85,53 @@ export default ({ getEnoughParticipants }: PoolJoinBattlesProps) => {
               shape="purple"
               justifyContent="center"
               px={6}
-              isDisabled={!current_account?.address || !ticketTotalAmount}
-              isLoading={
-                loading === 'join_battle' || ticketOwnedObject.isLoading
-              }
+              isDisabled={!account || !ticketTotalAmount}
+              isLoading={loading === 'join_battle' || getMyTickets.isLoading}
               onClick={async () => {
                 try {
                   setLoading('join_battle');
 
-                  if (
-                    !current_account?.address ||
-                    !ticketOwnedObject.data?.length
-                  ) {
-                    throw 'not found';
+                  if (!account || !getMyTickets.data?.length) {
+                    throw catchProperties({
+                      account,
+                      getMyTickets,
+                    });
                   }
 
-                  const tx = new Transaction();
+                  let winner: string | null | undefined = null;
 
-                  tx.moveCall({
-                    target: `${utilsSui.PROGRAM.PACKAGE_ID}::pool::join`,
-                    arguments: [
-                      tx.object(utilsSui.PROGRAM.POOL_ID),
-                      tx.object(utilsSui.PROGRAM.COLLECTION_ID),
-                      tx.object(ticketOwnedObject.data[0].objectId),
-                      tx.object.random(),
-                    ],
-                  });
+                  if (extension === TypeWalletEnum.Slush) {
+                    const tx = utilsSui.transaction();
 
-                  const { digest } = await signTransaction.mutateAsync({
-                    transaction: tx as unknown as string,
-                  });
+                    tx.moveCall({
+                      target: `${utilsSui.PROGRAM.PACKAGE_ID}::pool::join`,
+                      arguments: [
+                        tx.object(utilsSui.PROGRAM.POOL_ID),
+                        tx.object(utilsSui.PROGRAM.COLLECTION_ID),
+                        tx.object(getMyTickets.data[0].objectId),
+                        tx.object.random(),
+                      ],
+                    });
 
-                  const result = await utilsSui.getSuiClient.waitForTransaction(
+                    const { digest } =
+                      await utilsSui.signAndExecuteTransaction(tx);
+
+                    // looking for winner
                     {
-                      digest: digest,
-                      options: {
-                        showEvents: true,
-                      },
-                    }
-                  );
+                      const result =
+                        await utilsSui.getSuiClient.waitForTransaction({
+                          digest: digest,
+                          options: {
+                            showEvents: true,
+                          },
+                        });
 
-                  const event = result.events?.[0]
-                    .parsedJson as TypePoolEventPool;
+                      const event = result.events?.[0]
+                        .parsedJson as TypePoolEventPool;
+
+                      winner = event?.winner;
+                    }
+                  }
 
                   // refetch
                   {
@@ -139,10 +142,10 @@ export default ({ getEnoughParticipants }: PoolJoinBattlesProps) => {
                       ] => {
                         const instance = {
                           participants: [
-                            current_account.address,
+                            account,
                             ...(argument?.participants || []),
                           ],
-                          winner: event?.winner,
+                          winner,
                         };
 
                         fetch('/api/pool', {
@@ -155,7 +158,7 @@ export default ({ getEnoughParticipants }: PoolJoinBattlesProps) => {
                     );
 
                     await waitForSeconds(() => {
-                      ticketOwnedObject.refetch();
+                      getMyTickets.refetch();
                     });
                   }
                 } finally {

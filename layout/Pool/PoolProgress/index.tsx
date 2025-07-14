@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import PoolModal from '../PoolModal';
 
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import LoadingGIF from 'public/loading/loading.gif';
 import { TypePoolEventPool } from 'types/types.pool';
 import getQueryClient from 'utils/utils.queryClient';
@@ -21,6 +22,8 @@ export default ({
   isJoined,
   onSuccess,
 }: PoolProgressProps) => {
+  const { extension } = useExtensionContext();
+
   const [counter, setCounter] = useState(5);
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export default ({
 
           // refetch for winner
           getQueryClient.refetchQueries({
-            queryKey: ['useOwnedObject', `nft::NFT/${winner}`],
+            queryKey: ['my_tickets', extension, winner],
           });
 
           return clearInterval(subscribe);
@@ -47,7 +50,7 @@ export default ({
         clearInterval(subscribe);
       };
     }
-  }, [counter, winner]);
+  }, [counter, extension, winner]);
 
   return (
     <>

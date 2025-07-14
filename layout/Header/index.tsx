@@ -5,6 +5,7 @@ import Link from 'next/link';
 import HeaderAccount from './HeaderAccount';
 import HeaderBalance from './HeaderBalance';
 import HeaderDrawer from './HeaderDrawer';
+import HeaderExtension from './HeaderExtension';
 import HeaderNotification from './HeaderNotification';
 
 import ConnectWalletWrapper from 'components/ConnectWallet/ConnectWalletWrapper';
@@ -30,32 +31,36 @@ export default () => {
           <Image src={LogoPNG.src} alt={LogoPNG.src} width={200} height={68} />
         </Link>
 
-        <ConnectWalletWrapper
-          render={account => (
-            <>
-              <Box
-                display={{
-                  md: 'none',
-                }}
-              >
-                <HeaderDrawer account={account} />
-              </Box>
+        <HStack>
+          <HeaderExtension />
 
-              <HStack
-                display={{
-                  base: 'none',
-                  md: 'flex',
-                }}
-              >
-                <HeaderNotification />
+          <ConnectWalletWrapper
+            render={account => (
+              <>
+                <Box
+                  display={{
+                    md: 'none',
+                  }}
+                >
+                  <HeaderDrawer account={account} />
+                </Box>
 
-                <HeaderBalance />
+                <HStack
+                  display={{
+                    base: 'none',
+                    md: 'flex',
+                  }}
+                >
+                  <HeaderNotification />
 
-                <HeaderAccount account={account} />
-              </HStack>
-            </>
-          )}
-        />
+                  <HeaderBalance />
+
+                  <HeaderAccount account={account} />
+                </HStack>
+              </>
+            )}
+          />
+        </HStack>
       </Center>
     </Box>
   );

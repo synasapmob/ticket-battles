@@ -1,4 +1,5 @@
 import { AspectRatio, Box, Skeleton } from '@chakra-ui/react';
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import ProfileNFTsGrid from './ProfileNFTsGrid';
@@ -10,30 +11,33 @@ import CardNFTBottom from 'components/Card/CardNFT/CardNFTBottom';
 import CardNFTLayout from 'components/Card/CardNFT/CardNFTLayout';
 import CardNFTName from 'components/Card/CardNFT/CardNFTName';
 import CardNFTTokenID from 'components/Card/CardNFT/CardNFTTokenID';
-import useOwnedObject from 'hook/useOwnedObject';
-import { TypeOwnedObjectSuiParsedData } from 'types';
+import { useExtensionContext } from 'components/Context/ContextExtension';
+import { TypeOwnedObjectSuiParsedData, TypeWalletEnum } from 'types';
 import { TypeNFTMetadata } from 'types/types.nft';
 import utilsSui from 'utils/utils.sui';
 
 export default ({ params }: ProfilePageProps) => {
-  const ticketOwnedObject = useOwnedObject<
-    TypeOwnedObjectSuiParsedData<TypeNFTMetadata>
-  >({
-    queryKey: `nft::NFT/${params.address}`,
-    input: {
-      owner: params.address,
-      filter: {
-        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::nft::NFT`,
-      },
-      options: {
-        showContent: true,
-      },
+  const { extension } = useExtensionContext();
+
+  const getMyNFTs = useQuery({
+    queryKey: ['my_nfts', extension, params.address],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        return await utilsSui.getOwnedObject<
+          TypeOwnedObjectSuiParsedData<TypeNFTMetadata>
+        >({
+          type: 'nft::NFT',
+          options: {
+            owner: params.address,
+          },
+        });
+      }
     },
   });
 
   return (
     <>
-      {ticketOwnedObject.isLoading && (
+      {getMyNFTs.isLoading && (
         <ProfileNFTsGrid>
           {React.Children.toArray(
             [...Array(10)].map(() => <Skeleton width="full" height={60} />)
@@ -41,11 +45,11 @@ export default ({ params }: ProfilePageProps) => {
         </ProfileNFTsGrid>
       )}
 
-      {!ticketOwnedObject.isLoading && (
+      {!getMyNFTs.isLoading && (
         <>
-          {ticketOwnedObject.data?.length ? (
+          {getMyNFTs.data?.length ? (
             <ProfileNFTsGrid>
-              {ticketOwnedObject.data.map(meta => {
+              {getMyNFTs.data.map(meta => {
                 const name = (function () {
                   const { name } = require(
                     `public/metadata/metadata/${meta.content.fields.tokenId}.json`
@@ -78,8 +82,8 @@ export default ({ params }: ProfilePageProps) => {
             </ProfileNFTsGrid>
           ) : (
             <ButtonTryAgain
-              isFetching={ticketOwnedObject.isFetching}
-              refetch={ticketOwnedObject.refetch}
+              isFetching={getMyNFTs.isFetching}
+              refetch={getMyNFTs.refetch}
             />
           )}
         </>

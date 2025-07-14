@@ -1,10 +1,12 @@
 import { Metadata } from 'next';
 
+import ContextAccount from 'components/Context/ContextAccount';
+import ContextExtension from 'components/Context/ContextExtension';
+import ContextProviders from 'components/Context/ContextProviders';
 import ContextVolume from 'components/Context/ContextVolume';
 import ProviderChakra from 'layout/Provider/ProviderChakra';
 import ProviderDefault from 'layout/Provider/ProviderDefault';
 import ProviderQueryClient from 'layout/Provider/ProviderQueryClient';
-import ProviderSuiDapp from 'layout/Provider/ProviderSuiDapp';
 
 export const metadata: Metadata = {
   title: 'Ticket Battles',
@@ -32,13 +34,16 @@ export default function RootLayout({
 
       <body>
         <ProviderQueryClient>
-          <ProviderSuiDapp>
-            <ProviderChakra>
-              <ContextVolume>
-                <ProviderDefault>{children}</ProviderDefault>
-              </ContextVolume>
-            </ProviderChakra>
-          </ProviderSuiDapp>
+          <ProviderChakra>
+            <ContextExtension>
+              <ContextProviders>
+                <ContextAccount>
+                  <ProviderDefault>{children}</ProviderDefault>
+                </ContextAccount>
+              </ContextProviders>
+            </ContextExtension>
+            <ContextVolume></ContextVolume>
+          </ProviderChakra>
         </ProviderQueryClient>
       </body>
     </html>

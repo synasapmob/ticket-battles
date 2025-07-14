@@ -2,64 +2,53 @@
 
 import { Box, Container, Flex, Skeleton, Stack, theme } from '@chakra-ui/react';
 import { bcs } from '@mysten/bcs';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import Attention from 'components/Attention';
 import Back from 'components/Back';
+import { useAccountContext } from 'components/Context/ContextAccount';
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import MyTicket from 'components/MyTicket';
 import Radial from 'components/Radial';
-import useDevInspect from 'hook/useDevInspect';
-import useOwnedObject from 'hook/useOwnedObject';
+import useBalance from 'hook/useBalance';
 import FoundryBanner from 'layout/Foundry/FoundryBanner';
 import FoundrySwapChest from 'layout/Foundry/FoundrySwap/FoundrySwapChest';
 import FoundrySwapIcon from 'layout/Foundry/FoundrySwap/FoundrySwapIcon';
 import FoundrySwapSubmit from 'layout/Foundry/FoundrySwap/FoundrySwapSubmit';
 import FoundrySwapTicket from 'layout/Foundry/FoundrySwap/FoundrySwapTicket';
-import { TypeOwnedObjectSuiParsedData } from 'types';
-import { TypeTicketContentField } from 'types/types.ticket';
+import { TypeWalletEnum } from 'types';
 import { formatNumber } from 'utils';
 import getQueryClient from 'utils/utils.queryClient';
 import utilsSui from 'utils/utils.sui';
 
 export default () => {
-  const current_account = useCurrentAccount();
+  const { extension } = useExtensionContext();
+  const { account } = useAccountContext();
 
-  const ticketOwnedObject = useOwnedObject<
-    TypeOwnedObjectSuiParsedData<TypeTicketContentField>
-  >({
-    queryKey: `ticket::Ticket/${current_account?.address}`,
-    input: {
-      owner: current_account?.address as string,
-      filter: {
-        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::Ticket`,
-      },
-      options: {
-        showContent: true,
-      },
+  const balanceTicket = useBalance({
+    address: account,
+    options: {
+      coinType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::TICKET`,
     },
   });
 
-  const getDevInspectPriceSwapTicket = useDevInspect({
-    type: 'shared::PRICE_SWAP_TICKET_TO_GET_NFT',
+  const getPriceSwapTicket = useQuery({
+    queryKey: ['price_swap_ticket', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        const view = await utilsSui.devInspect(
+          'shared::PRICE_SWAP_TICKET_TO_GET_NFT'
+        );
+
+        return view?.length
+          ? Number(
+              bcs.u64().parse(bcs.byteVector().serialize(view[0][0]).parse())
+            )
+          : 0;
+      }
+    },
   });
-
-  const getPriceSwapTicket = getDevInspectPriceSwapTicket.data?.length
-    ? Number(
-        bcs
-          .u64()
-          .parse(
-            bcs
-              .byteVector()
-              .serialize(getDevInspectPriceSwapTicket.data[0][0])
-              .parse()
-          )
-      )
-    : 0;
-
-  const ticketTotalAmount = Number(
-    ticketOwnedObject.data?.[0]?.content?.fields?.amount || 0
-  );
 
   const [quantity, setQuantity] = useState<string>();
 
@@ -85,9 +74,9 @@ export default () => {
             lg: '40%',
           }}
         >
-          {ticketOwnedObject.isLoading && <Skeleton height="lg" />}
+          {balanceTicket.isLoading && <Skeleton height="lg" />}
 
-          {!ticketOwnedObject.isLoading && (
+          {!balanceTicket.isLoading && (
             <Stack
               spacing={8}
               padding={4}
@@ -97,13 +86,13 @@ export default () => {
               position="relative"
             >
               <Stack>
-                {current_account?.address ? (
-                  <MyTicket amount={formatNumber(ticketTotalAmount)} />
+                {account ? (
+                  <MyTicket amount={formatNumber(balanceTicket.data || 0)} />
                 ) : null}
 
                 <Attention>
-                  spend {getPriceSwapTicket} tickets to forge 1 random NFT. The
-                  rarity is unpredictable, test your luck!
+                  spend {getPriceSwapTicket.data} tickets to forge 1 random NFT.
+                  The rarity is unpredictable, test your luck!
                 </Attention>
               </Stack>
 
@@ -111,7 +100,7 @@ export default () => {
                 <FoundrySwapIcon />
 
                 <FoundrySwapChest
-                  amount={ticketTotalAmount}
+                  amount={balanceTicket.data || 0}
                   quantity={quantity}
                   setQuantity={setQuantity}
                 />
@@ -120,17 +109,13 @@ export default () => {
               </Stack>
 
               <FoundrySwapSubmit
-                ticketOwnedObject={ticketOwnedObject.data?.[0]?.objectId}
                 quantity={quantity}
                 setQuantity={setQuantity}
                 refetch={() => {
-                  ticketOwnedObject.refetch();
+                  balanceTicket.refetch();
 
                   getQueryClient.refetchQueries({
-                    queryKey: [
-                      'useOwnedObject',
-                      `nft::NFT/${current_account?.address}`,
-                    ],
+                    queryKey: ['useOwnedObject', `nft::NFT/${account}`],
                   });
                 }}
               />

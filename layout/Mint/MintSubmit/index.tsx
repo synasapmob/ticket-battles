@@ -13,21 +13,18 @@ import {
   Text,
   useDisclosure,
 } from '@chakra-ui/react';
-import {
-  useCurrentAccount,
-  useSignAndExecuteTransaction,
-} from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';
 import BigNumber from 'bignumber.js';
 import { Dispatch, SetStateAction, useState } from 'react';
 
 import Button3D from 'components/Button/Button3D';
+import { useAccountContext } from 'components/Context/ContextAccount';
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import useBalance from 'hook/useBalance';
-import useOwnedObject from 'hook/useOwnedObject';
 import useToast from 'hook/useToast';
 import PoolTicket from 'layout/Pool/PoolTicket';
 import SuiIcon from 'public/fill/sui.svg';
-import { formatNumberDecimal, waitForSeconds } from 'utils';
+import { TypeWalletEnum } from 'types';
+import { catchProperties, formatNumberDecimal, waitForSeconds } from 'utils';
 import utilsSui from 'utils/utils.sui';
 
 interface MintSubmitProps {
@@ -43,26 +40,16 @@ export default ({
   setQuantity,
   refetch,
 }: MintSubmitProps) => {
-  const current_account = useCurrentAccount();
-  const balance = useBalance(current_account?.address);
-  const signTransaction = useSignAndExecuteTransaction();
+  const { account } = useAccountContext();
+  const { extension } = useExtensionContext();
+
+  const balance = useBalance({
+    address: account,
+  });
 
   const { isOpen, onToggle, onClose } = useDisclosure();
 
   const toast = useToast();
-
-  const ticketOwnedObject = useOwnedObject({
-    queryKey: `ticket::Ticket/${current_account?.address}`,
-    input: {
-      owner: current_account?.address as string,
-      filter: {
-        StructType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::Ticket`,
-      },
-      options: {
-        showContent: true,
-      },
-    },
-  });
 
   const [loading, setLoading] = useState<string>();
 
@@ -77,12 +64,8 @@ export default ({
       <Button3D
         shape="green"
         justifyContent="center"
-        isDisabled={!current_account?.address || insufficientBalance}
-        isLoading={
-          loading === 'join_battle' ||
-          balance.isLoading ||
-          ticketOwnedObject.isLoading
-        }
+        isDisabled={!account || insufficientBalance}
+        isLoading={loading === 'join_battle' || balance.isLoading}
         onClick={onToggle}
       >
         {(function () {
@@ -148,40 +131,39 @@ export default ({
                   try {
                     setLoading('join_battle');
 
-                    if (!current_account) throw 'not found';
+                    if (!account) {
+                      throw catchProperties({
+                        account,
+                      });
+                    }
 
-                    const tx = new Transaction();
+                    if (extension === TypeWalletEnum.Slush) {
+                      const tx = utilsSui.transaction();
 
-                    const coin = tx.splitCoins(tx.gas, [totalPrice]);
+                      const coin_sui = tx.splitCoins(tx.gas, [totalPrice]);
+                      const coin_ticket = tx.splitCoins(
+                        '0x7e1385925985b0efd22216997f7499771227b4406d45437be71d6d3b8aa8a690',
+                        [Number(quantity)]
+                      );
 
-                    tx.moveCall({
-                      target: (function () {
-                        if (ticketOwnedObject.data?.length) {
-                          return `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::mint_with_amount`;
-                        }
+                      tx.moveCall({
+                        target: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::mint_with_coin`,
+                        // target: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::mint`,
+                        arguments: [
+                          tx.object(utilsSui.PROGRAM.TREASURY_TICKET),
+                          tx.object(
+                            '0x7e1385925985b0efd22216997f7499771227b4406d45437be71d6d3b8aa8a690'
+                          ),
+                          // coin_ticket,
+                          coin_sui,
+                        ],
+                      });
 
-                        return `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::mint`;
-                      })(),
-                      arguments: (function () {
-                        if (ticketOwnedObject.data?.length) {
-                          return [
-                            tx.object(ticketOwnedObject.data[0].objectId),
-                            coin,
-                          ];
-                        }
-
-                        return [coin];
-                      })(),
-                    });
-
-                    await signTransaction.mutateAsync({
-                      transaction: tx as unknown as string,
-                    });
+                      await utilsSui.signAndExecuteTransaction(tx);
+                    }
 
                     await waitForSeconds(() => {
                       refetch();
-
-                      ticketOwnedObject.refetch();
                     });
 
                     setQuantity('1');

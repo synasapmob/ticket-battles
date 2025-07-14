@@ -7,16 +7,16 @@ import {
   PopoverTrigger,
   Stack,
 } from '@chakra-ui/react';
-import { type WalletAccount } from 'wallet-standard';
 
 import HeaderBalance from '../HeaderBalance';
 import HeaderListOption from '../HeaderList/HeaderListOption';
 
+import { AccountContextProps } from 'components/Context/ContextAccount';
 import MenuLineIcon from 'public/line/menu.svg';
 import { shorten } from 'utils';
 
 interface HeaderDrawerProps {
-  account: WalletAccount;
+  account: NonNullable<AccountContextProps['account']>;
 }
 
 export default ({ account }: HeaderDrawerProps) => {
@@ -43,7 +43,7 @@ export default ({ account }: HeaderDrawerProps) => {
             borderColor="shader.a.500"
           >
             <Stack>
-              <Button variant="primary">{shorten(account.address)}</Button>
+              <Button variant="primary">{shorten(account)}</Button>
 
               <HeaderBalance />
 

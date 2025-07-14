@@ -1,23 +1,25 @@
 import { Button, Icon, useClipboard } from '@chakra-ui/react';
-import { useDisconnectWallet } from '@mysten/dapp-kit';
 import Link from 'node_modules/next/link';
 import { useState } from 'react';
-import { type WalletAccount } from 'wallet-standard';
 
+import {
+  AccountContextProps,
+  useAccountContext,
+} from 'components/Context/ContextAccount';
 import CheckIcon from 'public/line/check.svg';
 import CopyIcon from 'public/line/copy.svg';
 import LogoutIcon from 'public/line/logout.svg';
 import UserIcon from 'public/line/user.svg';
 
 interface HeaderListOptionProps {
-  account: WalletAccount;
+  account: NonNullable<AccountContextProps['account']>;
   onClose: () => void;
 }
 
 export default ({ account, onClose }: HeaderListOptionProps) => {
-  const disconnect_wallet = useDisconnectWallet();
+  const { disconnectAccount } = useAccountContext();
 
-  const { hasCopied, onCopy } = useClipboard(account.address);
+  const { hasCopied, onCopy } = useClipboard(account);
 
   const [loading, setLoading] = useState<string>();
 
@@ -33,7 +35,7 @@ export default ({ account, onClose }: HeaderListOptionProps) => {
         Copy Address
       </Button>
 
-      <Link href={`/profile/${account.address}`} onClick={onClose}>
+      <Link href={`/profile/${account}`} onClick={onClose}>
         <Button
           variant="dark"
           leftIcon={<Icon as={UserIcon} width={4} height={4} />}
@@ -53,7 +55,7 @@ export default ({ account, onClose }: HeaderListOptionProps) => {
           try {
             setLoading('disconnected');
 
-            await disconnect_wallet.mutateAsync();
+            disconnectAccount();
 
             onClose();
           } finally {

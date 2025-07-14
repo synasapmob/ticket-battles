@@ -3,50 +3,70 @@
 import {
   Container,
   Flex,
-  HStack,
-  Icon,
   Skeleton,
   Stack,
   Text,
   theme,
 } from '@chakra-ui/react';
 import { bcs } from '@mysten/bcs';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import Back from 'components/Back';
-import useDevInspect from 'hook/useDevInspect';
-import useQueryEvent from 'hook/useQueryEvent';
+import { useExtensionContext } from 'components/Context/ContextExtension';
+import Currency from 'components/Currency';
 import MintQuantity from 'layout/Mint/MintQuantity';
 import MintSubmit from 'layout/Mint/MintSubmit';
 import MintTime from 'layout/Mint/MintTime';
 import PoolTicket from 'layout/Pool/PoolTicket';
-import SuiIcon from 'public/fill/sui.svg';
+import { TypeWalletEnum } from 'types';
 import { TypeTicketContentField } from 'types/types.ticket';
 import { formatNumber, formatNumberDecimal, sumNumber } from 'utils';
+import utilsConstants from 'utils/utils.constants';
+import utilsSui from 'utils/utils.sui';
 
 export default () => {
+  const { extension } = useExtensionContext();
+
   const [quantity, setQuantity] = useState('1');
 
-  const getTicketEvent = useQueryEvent<TypeTicketContentField>({
-    type: 'ticket::TicketEvent',
+  const getTicketEvent = useQuery({
+    queryKey: ['minted', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        const { data } = await utilsSui.getSuiClient.queryEvents({
+          query: {
+            MoveEventType: `${utilsSui.PROGRAM.PACKAGE_ID}::ticket::TicketEvent`,
+          },
+        });
+
+        const parsedJSON = data.map(
+          meta => meta.parsedJson as TypeTicketContentField
+        );
+
+        return sumNumber(parsedJSON.map(meta => Number(meta.amount)));
+      }
+    },
   });
 
-  const getDevInspectPriceMint = useDevInspect({
-    type: 'shared::PRICE_MINT_TICKET',
+  const getPriceMint = useQuery({
+    queryKey: ['price_mint_ticket', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        const view = await utilsSui.devInspect('shared::PRICE_MINT_TICKET');
+
+        return view?.length
+          ? Number(
+              bcs.u64().parse(bcs.byteVector().serialize(view[0][0]).parse())
+            )
+          : 0;
+      }
+    },
   });
 
-  const getPriceMint = getDevInspectPriceMint.data?.length
-    ? Number(
-        bcs
-          .u64()
-          .parse(
-            bcs
-              .byteVector()
-              .serialize(getDevInspectPriceMint.data[0][0])
-              .parse()
-          )
-      )
-    : 0;
+  const config = utilsConstants.WALLET_CONFIG.find(
+    meta => meta.extension === extension
+  );
 
   return (
     <Container
@@ -83,41 +103,35 @@ export default () => {
             lg: '30%',
           }}
         >
-          {(getTicketEvent.isLoading || getDevInspectPriceMint.isLoading) && (
+          {(getTicketEvent.isLoading || getPriceMint.isLoading) && (
             <Skeleton height={72} />
           )}
 
-          {!(getTicketEvent.isLoading || getDevInspectPriceMint.isLoading) && (
+          {!(getTicketEvent.isLoading || getPriceMint.isLoading) && (
             <>
               <MintTime />
 
               <Stack padding={4} bg="shader.a.700" borderRadius="lg">
                 <Text color="shader.a.300">Price</Text>
 
-                <HStack>
-                  <Text color="shader.a.100" fontWeight="bold">
-                    {formatNumberDecimal(getPriceMint)} SUI
-                  </Text>
-
-                  <Icon as={SuiIcon} width={4} height={4} />
-                </HStack>
+                <Currency
+                  price={formatNumberDecimal(
+                    getPriceMint.data || 0,
+                    config?.decimal
+                  )}
+                  symbol={config?.symbol}
+                />
               </Stack>
 
               <Text fontWeight="medium">
-                {formatNumber(
-                  getTicketEvent.data?.length
-                    ? sumNumber(
-                        getTicketEvent.data.map(meta => Number(meta.amount))
-                      )
-                    : 0
-                )}
+                {formatNumber(getTicketEvent.data || 0)}
                 &nbsp;minted
               </Text>
 
               <MintQuantity quantity={quantity} setQuantity={setQuantity} />
 
               <MintSubmit
-                getPriceMint={getPriceMint}
+                getPriceMint={getPriceMint.data || 0}
                 quantity={quantity}
                 setQuantity={setQuantity}
                 refetch={getTicketEvent.refetch}

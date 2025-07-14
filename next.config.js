@@ -1,12 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  compiler: { emotion: true },
-
   images: {
     unoptimized: true,
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
+
+  env: {
+    NETWORK_VERSION: 'testnet',
   },
 
   webpack(config) {

@@ -5,15 +5,15 @@ import {
   Stack,
   theme,
 } from '@chakra-ui/react';
-import { type WalletAccount } from 'wallet-standard';
 
 import HeaderListOption from '../HeaderList/HeaderListOption';
 
 import Button3D from 'components/Button/Button3D';
+import { AccountContextProps } from 'components/Context/ContextAccount';
 import { shorten } from 'utils';
 
 interface HeaderListProps {
-  account: WalletAccount;
+  account: NonNullable<AccountContextProps['account']>;
 }
 
 export default ({ account }: HeaderListProps) => {
@@ -23,7 +23,7 @@ export default ({ account }: HeaderListProps) => {
         {({ onClose }) => (
           <>
             <PopoverTrigger>
-              <Button3D shape="green">{shorten(account.address)}</Button3D>
+              <Button3D shape="green">{shorten(account)}</Button3D>
             </PopoverTrigger>
 
             <PopoverContent

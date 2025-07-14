@@ -2,54 +2,64 @@
 
 import { Box, Container, Flex, Skeleton, theme } from '@chakra-ui/react';
 import { bcs } from '@mysten/bcs';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import Back from 'components/Back';
-import useDevInspect from 'hook/useDevInspect';
-import useQueryEvent from 'hook/useQueryEvent';
+import { useAccountContext } from 'components/Context/ContextAccount';
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import PoolBanner from 'layout/Pool/PoolBanner';
 import PoolJoinBattles from 'layout/Pool/PoolJoinBattles';
 import PoolMOCBattles from 'layout/Pool/PoolMOCBattles';
 import PoolProgress from 'layout/Pool/PoolProgress';
+import { TypeWalletEnum } from 'types';
 import { TypePoolEventPool } from 'types/types.pool';
 import getQueryClient from 'utils/utils.queryClient';
+import utilsSui from 'utils/utils.sui';
 
 export default () => {
-  const current_account = useCurrentAccount();
+  const { extension } = useExtensionContext();
+  const { account } = useAccountContext();
 
-  const getPoolsFromEvents = useQueryEvent<TypePoolEventPool>({
-    type: 'pool::PoolEvent',
-    options: {
-      limit: 1,
+  const getEnoughParticipants = useQuery({
+    queryKey: ['enough_participants_pool', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        const view = await utilsSui.devInspect(
+          'shared::ENOUGH_PARTICIPANTS_POOL'
+        );
+
+        return view?.length
+          ? Number(
+              bcs.u64().parse(bcs.byteVector().serialize(view[0][0]).parse())
+            )
+          : 0;
+      }
     },
   });
 
-  const getDevInspectEnoughParticipants = useDevInspect({
-    type: 'shared::ENOUGH_PARTICIPANTS_POOL',
-  });
+  const getPoolsFromEvents = useQuery({
+    queryKey: ['pool_events', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        const { data } = await utilsSui.getSuiClient.queryEvents({
+          query: {
+            MoveEventType: `${utilsSui.PROGRAM.PACKAGE_ID}::pool::PoolEvent`,
+          },
+          limit: 1,
+        });
 
-  const getEnoughParticipants = getDevInspectEnoughParticipants.data?.length
-    ? Number(
-        bcs
-          .u64()
-          .parse(
-            bcs
-              .byteVector()
-              .serialize(getDevInspectEnoughParticipants.data[0][0])
-              .parse()
-          )
-      )
-    : 0;
+        return data.map(meta => meta.parsedJson as TypePoolEventPool);
+      }
+    },
+  });
 
   const isJoined = useMemo(
     () =>
       getPoolsFromEvents.data?.some(meta => {
-        return meta?.participants?.some(
-          participant => participant === current_account?.address
-        );
+        return meta?.participants?.some(participant => participant === account);
       }),
-    [current_account?.address, getPoolsFromEvents.data]
+    [account, getPoolsFromEvents.data]
   );
 
   const winner = useMemo(
@@ -111,13 +121,13 @@ export default () => {
               {isJoined && getPoolsFromEvents.data?.length && (
                 <PoolMOCBattles
                   pools={getPoolsFromEvents.data}
-                  getEnoughParticipants={getEnoughParticipants}
+                  getEnoughParticipants={getEnoughParticipants.data || 0}
                 />
               )}
 
               {!isJoined && (
                 <PoolJoinBattles
-                  getEnoughParticipants={getEnoughParticipants}
+                  getEnoughParticipants={getEnoughParticipants.data || 0}
                 />
               )}
             </>
@@ -133,7 +143,7 @@ export default () => {
           <PoolBanner />
 
           <PoolProgress
-            getEnoughParticipants={getEnoughParticipants}
+            getEnoughParticipants={getEnoughParticipants.data || 0}
             winner={winner}
             isJoined={isJoined}
             onSuccess={getPoolsFromEvents.refetch}

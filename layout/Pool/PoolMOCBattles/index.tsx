@@ -1,9 +1,9 @@
 import { Box, Center, HStack, Icon, Stack, Text } from '@chakra-ui/react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
 
 import PoolTicket from '../PoolTicket';
 
 import Attention from 'components/Attention';
+import { useAccountContext } from 'components/Context/ContextAccount';
 import IdentifyLinearBody from 'components/IdentifyLinear/IdentifyLinearBody';
 import IdentifyLinearOverlay from 'components/IdentifyLinear/IdentifyLinearOverlay';
 import IdentifyLinearYield from 'components/IdentifyLinear/IdentifyLinearYield';
@@ -17,7 +17,7 @@ interface PoolMOCBattlesProps {
 }
 
 export default ({ getEnoughParticipants, pools }: PoolMOCBattlesProps) => {
-  const current_account = useCurrentAccount();
+  const { account } = useAccountContext();
 
   return (
     <Stack
@@ -54,7 +54,7 @@ export default ({ getEnoughParticipants, pools }: PoolMOCBattlesProps) => {
 
       <Stack>
         {pools[0].participants.map(participant => {
-          const isYou = participant === current_account?.address;
+          const isYou = participant === account;
 
           return (
             <Center

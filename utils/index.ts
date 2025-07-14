@@ -101,10 +101,11 @@ export const formatNumber = (
   return new Intl.NumberFormat('en-US', option).format(number);
 };
 
-export const formatNumberDecimal = (number: number | string) => {
-  const decimal = 10 ** SUI_DECIMALS;
-
-  return BigNumber(number).dividedBy(decimal).toNumber();
+export const formatNumberDecimal = (
+  number: number | string,
+  decimal = SUI_DECIMALS
+) => {
+  return BigNumber(number).dividedBy(Math.pow(10, decimal)).toNumber();
 };
 
 // handler catch message
@@ -303,4 +304,10 @@ export const waitForSeconds = async (cb: () => void, seconds?: number) => {
       cb();
     }, seconds || 2000);
   });
+};
+
+export const catchProperties = (obj: Record<string, any>) => {
+  for (const [key, conditional] of Object.entries(obj)) {
+    if (conditional) return key;
+  }
 };

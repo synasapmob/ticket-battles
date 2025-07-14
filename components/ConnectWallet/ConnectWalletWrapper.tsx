@@ -1,26 +1,29 @@
 import { ButtonProps, useDisclosure } from '@chakra-ui/react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { type WalletAccount } from 'wallet-standard';
 
 import ConnectWalletModal from './ConnectWalletModal';
 
 import ConnectWallet from '.';
 
+import {
+  AccountContextProps,
+  useAccountContext,
+} from 'components/Context/ContextAccount';
+
 interface ConnectWalletWrapperProps {
   // eslint-disable-next-line no-unused-vars
-  render: (account: WalletAccount) => JSX.Element;
+  render: (account: NonNullable<AccountContextProps['account']>) => JSX.Element;
   variant?: ButtonProps;
 }
 
 export default ({ render, variant }: ConnectWalletWrapperProps) => {
-  const current_account = useCurrentAccount();
+  const { account } = useAccountContext();
 
   const { isOpen, onToggle, onClose } = useDisclosure();
 
   return (
     <>
-      {current_account?.address ? (
-        render(current_account)
+      {account ? (
+        render(account)
       ) : (
         <>
           <ConnectWallet

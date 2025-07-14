@@ -2,6 +2,7 @@
 
 import { AspectRatio, Box, Container, Skeleton, theme } from '@chakra-ui/react';
 import { bcs } from '@mysten/bcs';
+import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import React from 'react';
 
@@ -12,35 +13,46 @@ import CardNFTLayout from 'components/Card/CardNFT/CardNFTLayout';
 import CardNFTName from 'components/Card/CardNFT/CardNFTName';
 import CardNFTRarity from 'components/Card/CardNFT/CardNFTRarity';
 import CardNFTTokenID from 'components/Card/CardNFT/CardNFTTokenID';
-import useDevInspect from 'hook/useDevInspect';
-import useQueryEvent from 'hook/useQueryEvent';
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import ProfileNFTsGrid from 'layout/Profile/ProfileNFTs/ProfileNFTsGrid';
+import { TypeWalletEnum } from 'types';
 import { TypeNFTMetadata } from 'types/types.nft';
 import { convertHex } from 'utils';
+import utilsSui from 'utils/utils.sui';
 
 export default () => {
-  const getNFTsFromEvents = useQueryEvent<TypeNFTMetadata>({
-    type: 'nft::NFTEvent',
+  const { extension } = useExtensionContext();
+
+  const getMaxToken = useQuery({
+    queryKey: ['max_token', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        const view = await utilsSui.devInspect('shared::MAX_TOKEN');
+
+        return view?.length
+          ? /* 
+              why +1 ?:
+                token representation as index they count from 0 to N (index of arrays)
+                if you map that'll missing 1st, so +1 necessary to render fully
+            */
+            Number(
+              bcs.u64().parse(bcs.byteVector().serialize(view[0][0]).parse())
+            ) + 1
+          : 0;
+      }
+    },
   });
 
-  const getDevInspectMaxToken = useDevInspect({
-    type: 'shared::MAX_TOKEN',
+  const getNFTsFromEvents = useQuery({
+    queryKey: ['nfts_from_events', extension],
+    queryFn: async () => {
+      if (extension === TypeWalletEnum.Slush) {
+        return await utilsSui.queryEvents<TypeNFTMetadata>({
+          type: 'nft::NFTEvent',
+        });
+      }
+    },
   });
-
-  const getMaxToken = getDevInspectMaxToken.data?.length
-    ? /* 
-        why +1 ?:
-          token representation as index they count from 0 to N (index of arrays)
-          if you map that'll missing 1st, so +1 necessary to render fully
-      */
-      Number(
-        bcs
-          .u64()
-          .parse(
-            bcs.byteVector().serialize(getDevInspectMaxToken.data[0][0]).parse()
-          )
-      ) + 1
-    : 0;
 
   return (
     <Container
@@ -52,7 +64,7 @@ export default () => {
     >
       <Back />
 
-      {getDevInspectMaxToken.isLoading && (
+      {getMaxToken.isLoading && (
         <ProfileNFTsGrid>
           {React.Children.toArray(
             [...Array(10)].map(() => <Skeleton width="full" height={60} />)
@@ -60,10 +72,10 @@ export default () => {
         </ProfileNFTsGrid>
       )}
 
-      {!getDevInspectMaxToken.isLoading && (
+      {!getMaxToken.isLoading && (
         <>
           <ProfileNFTsGrid>
-            {[...Array(getMaxToken)].map((_, index) => {
+            {[...Array(getMaxToken.data)].map((_, index) => {
               const { name, tokenId } = (function () {
                 const { name } = require(
                   `public/metadata/metadata/${index}.json`

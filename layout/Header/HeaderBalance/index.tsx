@@ -1,18 +1,27 @@
 import { ButtonProps, Skeleton, SkeletonProps } from '@chakra-ui/react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
 
 import Button3D from 'components/Button/Button3D';
+import { useAccountContext } from 'components/Context/ContextAccount';
+import { useExtensionContext } from 'components/Context/ContextExtension';
 import useBalance from 'hook/useBalance';
 import { formatNumberDecimal } from 'utils';
+import utilsConstants from 'utils/utils.constants';
 
 interface HeaderBalanceProps {
   variant?: ButtonProps;
 }
 
 export default ({ variant }: HeaderBalanceProps) => {
-  const current_account = useCurrentAccount();
+  const { extension } = useExtensionContext();
+  const { account } = useAccountContext();
 
-  const { data, isLoading } = useBalance(current_account?.address);
+  const { data, isLoading } = useBalance({
+    address: account,
+  });
+
+  const config = utilsConstants.WALLET_CONFIG.find(
+    meta => meta.extension === extension
+  );
 
   return (
     <>
@@ -24,7 +33,15 @@ export default ({ variant }: HeaderBalanceProps) => {
         <>
           {typeof data === 'number' && (
             <Button3D shape="black" {...variant}>
-              {formatNumberDecimal(data).toFixed(4)} SUI
+              {(function () {
+                let price = formatNumberDecimal(data, config?.decimal);
+
+                if (price >= 0.1) {
+                  price = Number(price.toFixed(4));
+                }
+
+                return `${price} ${config?.symbol}`;
+              })()}
             </Button3D>
           )}
         </>
